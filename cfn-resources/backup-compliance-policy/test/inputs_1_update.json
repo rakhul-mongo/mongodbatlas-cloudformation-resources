@@ -1,0 +1,10 @@
+{
+  "ProjectId": "",
+  "AuthorizedEmail": "",
+  "AuthorizedUserFirstName": "John",
+  "AuthorizedUserLastName": "Doe",
+  "CopyProtectionEnabled": true,
+  "EncryptionAtRestEnabled": true,
+  "PitEnabled": true,
+  "RestoreWindowDays": 7
+}

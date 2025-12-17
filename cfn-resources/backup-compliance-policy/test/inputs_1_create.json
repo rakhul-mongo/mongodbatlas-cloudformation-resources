@@ -1,0 +1,9 @@
+{
+  "ProjectId": "",
+  "AuthorizedEmail": "",
+  "AuthorizedUserFirstName": "John",
+  "AuthorizedUserLastName": "Doe",
+  "CopyProtectionEnabled": false,
+  "EncryptionAtRestEnabled": false,
+  "PitEnabled": false
+}

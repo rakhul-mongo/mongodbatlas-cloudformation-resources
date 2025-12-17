@@ -1,0 +1,51 @@
+{
+  "ProjectId": "",
+  "AuthorizedEmail": "",
+  "AuthorizedUserFirstName": "Jane",
+  "AuthorizedUserLastName": "Smith",
+  "CopyProtectionEnabled": true,
+  "EncryptionAtRestEnabled": true,
+  "PitEnabled": true,
+  "RestoreWindowDays": 14,
+  "OnDemandPolicyItem": {
+    "FrequencyInterval": 1,
+    "RetentionUnit": "days",
+    "RetentionValue": 30
+  },
+  "PolicyItemHourly": {
+    "FrequencyInterval": 6,
+    "RetentionUnit": "days",
+    "RetentionValue": 7
+  },
+  "PolicyItemDaily": {
+    "FrequencyInterval": 1,
+    "RetentionUnit": "days",
+    "RetentionValue": 30
+  },
+  "PolicyItemWeekly": [
+    {
+      "FrequencyInterval": 1,
+      "RetentionUnit": "weeks",
+      "RetentionValue": 4
+    },
+    {
+      "FrequencyInterval": 2,
+      "RetentionUnit": "weeks",
+      "RetentionValue": 8
+    }
+  ],
+  "PolicyItemMonthly": [
+    {
+      "FrequencyInterval": 1,
+      "RetentionUnit": "months",
+      "RetentionValue": 6
+    }
+  ],
+  "PolicyItemYearly": [
+    {
+      "FrequencyInterval": 1,
+      "RetentionUnit": "years",
+      "RetentionValue": 1
+    }
+  ]
+}
