@@ -12,31 +12,133 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package resource
+package resource_test
 
 import (
 	"fmt"
 	"net/http"
 	"testing"
+	"time"
+
+	"go.mongodb.org/atlas-sdk/v20250312010/admin"
+	"go.mongodb.org/atlas-sdk/v20250312010/mockadmin"
 
 	"github.com/aws-cloudformation/cloudformation-cli-go-plugin/cfn/handler"
+	"github.com/mongodb/mongodbatlas-cloudformation-resources/backup-compliance-policy/cmd/resource"
 	"github.com/mongodb/mongodbatlas-cloudformation-resources/util"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
-	admin20250312010 "go.mongodb.org/atlas-sdk/v20250312010/admin"
-	"go.mongodb.org/atlas-sdk/v20250312010/mockadmin"
 )
+
+// Helper function to create a test model
+func createTestModel() *resource.Model {
+	projectID := "507f1f77bcf86cd799439011"
+	authorizedEmail := "test@example.com"
+	authorizedUserFirstName := "John"
+	authorizedUserLastName := "Doe"
+
+	return &resource.Model{
+		ProjectId:               &projectID,
+		AuthorizedEmail:         &authorizedEmail,
+		AuthorizedUserFirstName: &authorizedUserFirstName,
+		AuthorizedUserLastName:  &authorizedUserLastName,
+	}
+}
+
+// Helper function to create a test API policy response
+func createTestPolicy() *admin.DataProtectionSettings20231001 {
+	projectID := "507f1f77bcf86cd799439011"
+	authorizedEmail := "test@example.com"
+	authorizedUserFirstName := "John"
+	authorizedUserLastName := "Doe"
+	state := "ACTIVE"
+	updatedUser := "user@example.com"
+	copyProtectionEnabled := false
+	encryptionAtRestEnabled := true
+	pitEnabled := false
+	restoreWindowDays := 7
+	updatedDate := time.Now()
+
+	onDemandId := "507f1f77bcf86cd799439020"
+	onDemandItem := admin.BackupComplianceOnDemandPolicyItem{
+		Id:                &onDemandId,
+		FrequencyInterval: 1,
+		FrequencyType:     "ondemand",
+		RetentionUnit:     "days",
+		RetentionValue:    30,
+	}
+
+	hourlyId := "507f1f77bcf86cd799439021"
+	hourlyItem := admin.BackupComplianceScheduledPolicyItem{
+		Id:                &hourlyId,
+		FrequencyType:     "hourly",
+		FrequencyInterval: 6,
+		RetentionUnit:     "days",
+		RetentionValue:    7,
+	}
+
+	dailyId := "507f1f77bcf86cd799439022"
+	dailyItem := admin.BackupComplianceScheduledPolicyItem{
+		Id:                &dailyId,
+		FrequencyType:     "daily",
+		FrequencyInterval: 1,
+		RetentionUnit:     "days",
+		RetentionValue:    30,
+	}
+
+	weeklyId1 := "507f1f77bcf86cd799439023"
+	weeklyItem1 := admin.BackupComplianceScheduledPolicyItem{
+		Id:                &weeklyId1,
+		FrequencyType:     "weekly",
+		FrequencyInterval: 1,
+		RetentionUnit:     "weeks",
+		RetentionValue:    4,
+	}
+
+	weeklyId2 := "507f1f77bcf86cd799439024"
+	weeklyItem2 := admin.BackupComplianceScheduledPolicyItem{
+		Id:                &weeklyId2,
+		FrequencyType:     "weekly",
+		FrequencyInterval: 2,
+		RetentionUnit:     "weeks",
+		RetentionValue:    8,
+	}
+
+	scheduledItems := []admin.BackupComplianceScheduledPolicyItem{
+		hourlyItem,
+		dailyItem,
+		weeklyItem1,
+		weeklyItem2,
+	}
+
+	policy := &admin.DataProtectionSettings20231001{
+		ProjectId:               &projectID,
+		AuthorizedEmail:         authorizedEmail,
+		AuthorizedUserFirstName: authorizedUserFirstName,
+		AuthorizedUserLastName:  authorizedUserLastName,
+		State:                   &state,
+		UpdatedUser:             &updatedUser,
+		UpdatedDate:             &updatedDate,
+		CopyProtectionEnabled:   &copyProtectionEnabled,
+		EncryptionAtRestEnabled: &encryptionAtRestEnabled,
+		PitEnabled:              &pitEnabled,
+		RestoreWindowDays:       &restoreWindowDays,
+		OnDemandPolicyItem:      &onDemandItem,
+		ScheduledPolicyItems:    &scheduledItems,
+	}
+	return policy
+}
 
 // Test validation errors
 func TestCreateValidationErrors(t *testing.T) {
 	testCases := map[string]struct {
-		currentModel   *Model
+		currentModel   *resource.Model
 		expectedStatus handler.Status
 		expectedMsg    string
 	}{
 		"missingProjectId": {
-			currentModel: &Model{
+			currentModel: &resource.Model{
 				AuthorizedEmail:         util.StringPtr("test@example.com"),
 				AuthorizedUserFirstName: util.StringPtr("John"),
 				AuthorizedUserLastName:  util.StringPtr("Doe"),
@@ -45,7 +147,7 @@ func TestCreateValidationErrors(t *testing.T) {
 			expectedMsg:    "required",
 		},
 		"missingAuthorizedEmail": {
-			currentModel: &Model{
+			currentModel: &resource.Model{
 				ProjectId:               func() *string { s := "507f1f77bcf86cd799439011"; return &s }(),
 				AuthorizedUserFirstName: func() *string { s := "John"; return &s }(),
 				AuthorizedUserLastName:  func() *string { s := "Doe"; return &s }(),
@@ -54,7 +156,7 @@ func TestCreateValidationErrors(t *testing.T) {
 			expectedMsg:    "required",
 		},
 		"missingAuthorizedUserFirstName": {
-			currentModel: &Model{
+			currentModel: &resource.Model{
 				ProjectId:              func() *string { s := "507f1f77bcf86cd799439011"; return &s }(),
 				AuthorizedEmail:        func() *string { s := "test@example.com"; return &s }(),
 				AuthorizedUserLastName: func() *string { s := "Doe"; return &s }(),
@@ -63,7 +165,7 @@ func TestCreateValidationErrors(t *testing.T) {
 			expectedMsg:    "required",
 		},
 		"missingAuthorizedUserLastName": {
-			currentModel: &Model{
+			currentModel: &resource.Model{
 				ProjectId:               func() *string { s := "507f1f77bcf86cd799439011"; return &s }(),
 				AuthorizedEmail:         func() *string { s := "test@example.com"; return &s }(),
 				AuthorizedUserFirstName: func() *string { s := "John"; return &s }(),
@@ -78,7 +180,7 @@ func TestCreateValidationErrors(t *testing.T) {
 			req := handler.Request{
 				RequestContext: handler.RequestContext{},
 			}
-			event, err := Create(req, nil, tc.currentModel)
+			event, err := resource.Create(req, nil, tc.currentModel)
 
 			require.NoError(t, err)
 			assert.Equal(t, tc.expectedStatus, event.OperationStatus)
@@ -89,12 +191,12 @@ func TestCreateValidationErrors(t *testing.T) {
 
 func TestReadValidationErrors(t *testing.T) {
 	testCases := map[string]struct {
-		currentModel   *Model
+		currentModel   *resource.Model
 		expectedStatus handler.Status
 		expectedMsg    string
 	}{
 		"missingProjectId": {
-			currentModel:   &Model{},
+			currentModel:   &resource.Model{},
 			expectedStatus: handler.Failed,
 			expectedMsg:    "required",
 		},
@@ -105,7 +207,7 @@ func TestReadValidationErrors(t *testing.T) {
 			req := handler.Request{
 				RequestContext: handler.RequestContext{},
 			}
-			event, err := Read(req, nil, tc.currentModel)
+			event, err := resource.Read(req, nil, tc.currentModel)
 
 			require.NoError(t, err)
 			assert.Equal(t, tc.expectedStatus, event.OperationStatus)
@@ -116,12 +218,12 @@ func TestReadValidationErrors(t *testing.T) {
 
 func TestUpdateValidationErrors(t *testing.T) {
 	testCases := map[string]struct {
-		currentModel   *Model
+		currentModel   *resource.Model
 		expectedStatus handler.Status
 		expectedMsg    string
 	}{
 		"missingProjectId": {
-			currentModel: &Model{
+			currentModel: &resource.Model{
 				AuthorizedEmail:         util.StringPtr("test@example.com"),
 				AuthorizedUserFirstName: util.StringPtr("John"),
 				AuthorizedUserLastName:  util.StringPtr("Doe"),
@@ -136,7 +238,7 @@ func TestUpdateValidationErrors(t *testing.T) {
 			req := handler.Request{
 				RequestContext: handler.RequestContext{},
 			}
-			event, err := Update(req, nil, tc.currentModel)
+			event, err := resource.Update(req, nil, tc.currentModel)
 
 			require.NoError(t, err)
 			assert.Equal(t, tc.expectedStatus, event.OperationStatus)
@@ -147,12 +249,12 @@ func TestUpdateValidationErrors(t *testing.T) {
 
 func TestDeleteValidationErrors(t *testing.T) {
 	testCases := map[string]struct {
-		currentModel   *Model
+		currentModel   *resource.Model
 		expectedStatus handler.Status
 		expectedMsg    string
 	}{
 		"missingProjectId": {
-			currentModel:   &Model{},
+			currentModel:   &resource.Model{},
 			expectedStatus: handler.Failed,
 			expectedMsg:    "required",
 		},
@@ -163,7 +265,7 @@ func TestDeleteValidationErrors(t *testing.T) {
 			req := handler.Request{
 				RequestContext: handler.RequestContext{},
 			}
-			event, err := Delete(req, nil, tc.currentModel)
+			event, err := resource.Delete(req, nil, tc.currentModel)
 
 			require.NoError(t, err)
 			assert.Equal(t, tc.expectedStatus, event.OperationStatus)
@@ -174,12 +276,12 @@ func TestDeleteValidationErrors(t *testing.T) {
 
 func TestListValidationErrors(t *testing.T) {
 	testCases := map[string]struct {
-		currentModel   *Model
+		currentModel   *resource.Model
 		expectedStatus handler.Status
 		expectedMsg    string
 	}{
 		"missingProjectId": {
-			currentModel:   &Model{},
+			currentModel:   &resource.Model{},
 			expectedStatus: handler.Failed,
 			expectedMsg:    "required",
 		},
@@ -190,7 +292,7 @@ func TestListValidationErrors(t *testing.T) {
 			req := handler.Request{
 				RequestContext: handler.RequestContext{},
 			}
-			event, err := List(req, nil, tc.currentModel)
+			event, err := resource.List(req, nil, tc.currentModel)
 
 			require.NoError(t, err)
 			assert.Equal(t, tc.expectedStatus, event.OperationStatus)
@@ -202,14 +304,14 @@ func TestListValidationErrors(t *testing.T) {
 // Test CRUD operations with mocks
 func TestCreateWithMocks(t *testing.T) {
 	// Save original function
-	originalInitEnv := initEnvWithLatestClient
+	originalInitEnv := resource.InitEnvWithLatestClient
 	defer func() {
-		initEnvWithLatestClient = originalInitEnv
+		resource.InitEnvWithLatestClient = originalInitEnv
 	}()
 
 	testCases := map[string]struct {
 		req            handler.Request
-		currentModel   *Model
+		currentModel   *resource.Model
 		mockSetup      func(*mockadmin.CloudBackupsApi)
 		expectedStatus handler.Status
 	}{
@@ -219,7 +321,7 @@ func TestCreateWithMocks(t *testing.T) {
 			},
 			currentModel: createTestModel(),
 			mockSetup: func(m *mockadmin.CloudBackupsApi) {
-				req := admin20250312010.UpdateCompliancePolicyApiRequest{ApiService: m}
+				req := admin.UpdateCompliancePolicyApiRequest{ApiService: m}
 				m.EXPECT().UpdateCompliancePolicyWithParams(mock.Anything, mock.Anything).Return(req)
 				policy := createTestPolicy()
 				m.EXPECT().UpdateCompliancePolicyExecute(mock.Anything).Return(policy, &http.Response{StatusCode: 200}, nil)
@@ -232,7 +334,7 @@ func TestCreateWithMocks(t *testing.T) {
 			},
 			currentModel: createTestModel(),
 			mockSetup: func(m *mockadmin.CloudBackupsApi) {
-				req := admin20250312010.UpdateCompliancePolicyApiRequest{ApiService: m}
+				req := admin.UpdateCompliancePolicyApiRequest{ApiService: m}
 				m.EXPECT().UpdateCompliancePolicyWithParams(mock.Anything, mock.Anything).Return(req)
 				m.EXPECT().UpdateCompliancePolicyExecute(mock.Anything).Return(nil, &http.Response{StatusCode: 500}, fmt.Errorf("API error"))
 			},
@@ -245,14 +347,14 @@ func TestCreateWithMocks(t *testing.T) {
 			mockApi := mockadmin.NewCloudBackupsApi(t)
 			tc.mockSetup(mockApi)
 
-			mockClient := &admin20250312010.APIClient{}
+			mockClient := &admin.APIClient{}
 			mockClient.CloudBackupsApi = mockApi
 
-			initEnvWithLatestClient = func(req handler.Request, currentModel *Model, requiredFields []string) (*admin20250312010.APIClient, *handler.ProgressEvent) {
+			resource.InitEnvWithLatestClient = func(req handler.Request, currentModel *resource.Model, requiredFields []string) (*admin.APIClient, *handler.ProgressEvent) {
 				return mockClient, nil
 			}
 
-			event, err := Create(tc.req, nil, tc.currentModel)
+			event, err := resource.Create(tc.req, nil, tc.currentModel)
 
 			require.NoError(t, err)
 			assert.Equal(t, tc.expectedStatus, event.OperationStatus)
@@ -262,14 +364,14 @@ func TestCreateWithMocks(t *testing.T) {
 
 func TestReadWithMocks(t *testing.T) {
 	// Save original function
-	originalInitEnv := initEnvWithLatestClient
+	originalInitEnv := resource.InitEnvWithLatestClient
 	defer func() {
-		initEnvWithLatestClient = originalInitEnv
+		resource.InitEnvWithLatestClient = originalInitEnv
 	}()
 
 	testCases := map[string]struct {
 		req            handler.Request
-		currentModel   *Model
+		currentModel   *resource.Model
 		mockSetup      func(*mockadmin.CloudBackupsApi)
 		expectedStatus handler.Status
 	}{
@@ -279,7 +381,7 @@ func TestReadWithMocks(t *testing.T) {
 			},
 			currentModel: createTestModel(),
 			mockSetup: func(m *mockadmin.CloudBackupsApi) {
-				req := admin20250312010.GetCompliancePolicyApiRequest{ApiService: m}
+				req := admin.GetCompliancePolicyApiRequest{ApiService: m}
 				m.EXPECT().GetCompliancePolicy(mock.Anything, mock.Anything).Return(req)
 				policy := createTestPolicy()
 				m.EXPECT().GetCompliancePolicyExecute(mock.Anything).Return(policy, &http.Response{StatusCode: 200}, nil)
@@ -292,7 +394,7 @@ func TestReadWithMocks(t *testing.T) {
 			},
 			currentModel: createTestModel(),
 			mockSetup: func(m *mockadmin.CloudBackupsApi) {
-				req := admin20250312010.GetCompliancePolicyApiRequest{ApiService: m}
+				req := admin.GetCompliancePolicyApiRequest{ApiService: m}
 				m.EXPECT().GetCompliancePolicy(mock.Anything, mock.Anything).Return(req)
 				m.EXPECT().GetCompliancePolicyExecute(mock.Anything).Return(nil, &http.Response{StatusCode: 404}, fmt.Errorf("not found"))
 			},
@@ -304,7 +406,7 @@ func TestReadWithMocks(t *testing.T) {
 			},
 			currentModel: createTestModel(),
 			mockSetup: func(m *mockadmin.CloudBackupsApi) {
-				req := admin20250312010.GetCompliancePolicyApiRequest{ApiService: m}
+				req := admin.GetCompliancePolicyApiRequest{ApiService: m}
 				m.EXPECT().GetCompliancePolicy(mock.Anything, mock.Anything).Return(req)
 				m.EXPECT().GetCompliancePolicyExecute(mock.Anything).Return(nil, &http.Response{StatusCode: 500}, fmt.Errorf("server error"))
 			},
@@ -316,7 +418,7 @@ func TestReadWithMocks(t *testing.T) {
 			},
 			currentModel: createTestModel(),
 			mockSetup: func(m *mockadmin.CloudBackupsApi) {
-				req := admin20250312010.GetCompliancePolicyApiRequest{ApiService: m}
+				req := admin.GetCompliancePolicyApiRequest{ApiService: m}
 				m.EXPECT().GetCompliancePolicy(mock.Anything, mock.Anything).Return(req)
 				m.EXPECT().GetCompliancePolicyExecute(mock.Anything).Return(nil, nil, fmt.Errorf("network error"))
 			},
@@ -329,14 +431,14 @@ func TestReadWithMocks(t *testing.T) {
 			mockApi := mockadmin.NewCloudBackupsApi(t)
 			tc.mockSetup(mockApi)
 
-			mockClient := &admin20250312010.APIClient{}
+			mockClient := &admin.APIClient{}
 			mockClient.CloudBackupsApi = mockApi
 
-			initEnvWithLatestClient = func(req handler.Request, currentModel *Model, requiredFields []string) (*admin20250312010.APIClient, *handler.ProgressEvent) {
+			resource.InitEnvWithLatestClient = func(req handler.Request, currentModel *resource.Model, requiredFields []string) (*admin.APIClient, *handler.ProgressEvent) {
 				return mockClient, nil
 			}
 
-			event, err := Read(tc.req, nil, tc.currentModel)
+			event, err := resource.Read(tc.req, nil, tc.currentModel)
 
 			require.NoError(t, err)
 			assert.Equal(t, tc.expectedStatus, event.OperationStatus)
@@ -346,15 +448,15 @@ func TestReadWithMocks(t *testing.T) {
 
 func TestUpdateWithMocks(t *testing.T) {
 	// Save original function
-	originalInitEnv := initEnvWithLatestClient
+	originalInitEnv := resource.InitEnvWithLatestClient
 	defer func() {
-		initEnvWithLatestClient = originalInitEnv
+		resource.InitEnvWithLatestClient = originalInitEnv
 	}()
 
 	testCases := map[string]struct {
 		req            handler.Request
-		prevModel      *Model
-		currentModel   *Model
+		prevModel      *resource.Model
+		currentModel   *resource.Model
 		mockSetup      func(*mockadmin.CloudBackupsApi)
 		expectedStatus handler.Status
 	}{
@@ -363,17 +465,25 @@ func TestUpdateWithMocks(t *testing.T) {
 				RequestContext: handler.RequestContext{},
 			},
 			prevModel: createTestModel(),
-			currentModel: func() *Model {
+			currentModel: func() *resource.Model {
 				m := createTestModel()
 				copyProtection := true
 				m.CopyProtectionEnabled = &copyProtection
 				return m
 			}(),
 			mockSetup: func(m *mockadmin.CloudBackupsApi) {
-				req := admin20250312010.UpdateCompliancePolicyApiRequest{ApiService: m}
-				m.EXPECT().UpdateCompliancePolicyWithParams(mock.Anything, mock.Anything).Return(req)
+				// Mock GetCompliancePolicy (called first to check if policy exists)
+				getReq := admin.GetCompliancePolicyApiRequest{ApiService: m}
+				m.EXPECT().GetCompliancePolicy(mock.Anything, mock.Anything).Return(getReq)
 				policy := createTestPolicy()
-				m.EXPECT().UpdateCompliancePolicyExecute(mock.Anything).Return(policy, &http.Response{StatusCode: 200}, nil)
+				m.EXPECT().GetCompliancePolicyExecute(mock.Anything).Return(policy, &http.Response{StatusCode: 200}, nil)
+				// Mock UpdateCompliancePolicyWithParams
+				updateReq := admin.UpdateCompliancePolicyApiRequest{ApiService: m}
+				m.EXPECT().UpdateCompliancePolicyWithParams(mock.Anything, mock.Anything).Return(updateReq)
+				m.EXPECT().UpdateCompliancePolicyExecute(mock.Anything).Return(nil, &http.Response{StatusCode: 200}, nil)
+				// Mock GetCompliancePolicy again (called after update to get complete state)
+				m.EXPECT().GetCompliancePolicy(mock.Anything, mock.Anything).Return(getReq)
+				m.EXPECT().GetCompliancePolicyExecute(mock.Anything).Return(policy, &http.Response{StatusCode: 200}, nil)
 			},
 			expectedStatus: handler.Success,
 		},
@@ -384,7 +494,7 @@ func TestUpdateWithMocks(t *testing.T) {
 			prevModel:    createTestModel(),
 			currentModel: createTestModel(),
 			mockSetup: func(m *mockadmin.CloudBackupsApi) {
-				req := admin20250312010.UpdateCompliancePolicyApiRequest{ApiService: m}
+				req := admin.UpdateCompliancePolicyApiRequest{ApiService: m}
 				m.EXPECT().UpdateCompliancePolicyWithParams(mock.Anything, mock.Anything).Return(req)
 				m.EXPECT().UpdateCompliancePolicyExecute(mock.Anything).Return(nil, &http.Response{StatusCode: 500}, fmt.Errorf("update failed"))
 			},
@@ -397,14 +507,14 @@ func TestUpdateWithMocks(t *testing.T) {
 			mockApi := mockadmin.NewCloudBackupsApi(t)
 			tc.mockSetup(mockApi)
 
-			mockClient := &admin20250312010.APIClient{}
+			mockClient := &admin.APIClient{}
 			mockClient.CloudBackupsApi = mockApi
 
-			initEnvWithLatestClient = func(req handler.Request, currentModel *Model, requiredFields []string) (*admin20250312010.APIClient, *handler.ProgressEvent) {
+			resource.InitEnvWithLatestClient = func(req handler.Request, currentModel *resource.Model, requiredFields []string) (*admin.APIClient, *handler.ProgressEvent) {
 				return mockClient, nil
 			}
 
-			event, err := Update(tc.req, tc.prevModel, tc.currentModel)
+			event, err := resource.Update(tc.req, tc.prevModel, tc.currentModel)
 
 			require.NoError(t, err)
 			assert.Equal(t, tc.expectedStatus, event.OperationStatus)
@@ -414,14 +524,14 @@ func TestUpdateWithMocks(t *testing.T) {
 
 func TestDeleteWithMocks(t *testing.T) {
 	// Save original function
-	originalInitEnv := initEnvWithLatestClient
+	originalInitEnv := resource.InitEnvWithLatestClient
 	defer func() {
-		initEnvWithLatestClient = originalInitEnv
+		resource.InitEnvWithLatestClient = originalInitEnv
 	}()
 
 	testCases := map[string]struct {
 		req            handler.Request
-		currentModel   *Model
+		currentModel   *resource.Model
 		mockSetup      func(*mockadmin.CloudBackupsApi)
 		expectedStatus handler.Status
 	}{
@@ -431,7 +541,7 @@ func TestDeleteWithMocks(t *testing.T) {
 			},
 			currentModel: createTestModel(),
 			mockSetup: func(m *mockadmin.CloudBackupsApi) {
-				req := admin20250312010.DisableCompliancePolicyApiRequest{ApiService: m}
+				req := admin.DisableCompliancePolicyApiRequest{ApiService: m}
 				m.EXPECT().DisableCompliancePolicy(mock.Anything, mock.Anything).Return(req)
 				m.EXPECT().DisableCompliancePolicyExecute(mock.Anything).Return(&http.Response{StatusCode: 200}, nil)
 			},
@@ -443,7 +553,7 @@ func TestDeleteWithMocks(t *testing.T) {
 			},
 			currentModel: createTestModel(),
 			mockSetup: func(m *mockadmin.CloudBackupsApi) {
-				req := admin20250312010.DisableCompliancePolicyApiRequest{ApiService: m}
+				req := admin.DisableCompliancePolicyApiRequest{ApiService: m}
 				m.EXPECT().DisableCompliancePolicy(mock.Anything, mock.Anything).Return(req)
 				m.EXPECT().DisableCompliancePolicyExecute(mock.Anything).Return(&http.Response{StatusCode: 500}, fmt.Errorf("delete failed"))
 			},
@@ -455,7 +565,7 @@ func TestDeleteWithMocks(t *testing.T) {
 			},
 			currentModel: createTestModel(),
 			mockSetup: func(m *mockadmin.CloudBackupsApi) {
-				req := admin20250312010.DisableCompliancePolicyApiRequest{ApiService: m}
+				req := admin.DisableCompliancePolicyApiRequest{ApiService: m}
 				m.EXPECT().DisableCompliancePolicy(mock.Anything, mock.Anything).Return(req)
 				m.EXPECT().DisableCompliancePolicyExecute(mock.Anything).Return(&http.Response{StatusCode: 404}, fmt.Errorf("not found"))
 			},
@@ -467,7 +577,7 @@ func TestDeleteWithMocks(t *testing.T) {
 			},
 			currentModel: createTestModel(),
 			mockSetup: func(m *mockadmin.CloudBackupsApi) {
-				req := admin20250312010.DisableCompliancePolicyApiRequest{ApiService: m}
+				req := admin.DisableCompliancePolicyApiRequest{ApiService: m}
 				m.EXPECT().DisableCompliancePolicy(mock.Anything, mock.Anything).Return(req)
 				m.EXPECT().DisableCompliancePolicyExecute(mock.Anything).Return(nil, fmt.Errorf("network error"))
 			},
@@ -480,14 +590,14 @@ func TestDeleteWithMocks(t *testing.T) {
 			mockApi := mockadmin.NewCloudBackupsApi(t)
 			tc.mockSetup(mockApi)
 
-			mockClient := &admin20250312010.APIClient{}
+			mockClient := &admin.APIClient{}
 			mockClient.CloudBackupsApi = mockApi
 
-			initEnvWithLatestClient = func(req handler.Request, currentModel *Model, requiredFields []string) (*admin20250312010.APIClient, *handler.ProgressEvent) {
+			resource.InitEnvWithLatestClient = func(req handler.Request, currentModel *resource.Model, requiredFields []string) (*admin.APIClient, *handler.ProgressEvent) {
 				return mockClient, nil
 			}
 
-			event, err := Delete(tc.req, nil, tc.currentModel)
+			event, err := resource.Delete(tc.req, nil, tc.currentModel)
 
 			require.NoError(t, err)
 			assert.Equal(t, tc.expectedStatus, event.OperationStatus)
@@ -497,14 +607,14 @@ func TestDeleteWithMocks(t *testing.T) {
 
 func TestListWithMocks(t *testing.T) {
 	// Save original function
-	originalInitEnv := initEnvWithLatestClient
+	originalInitEnv := resource.InitEnvWithLatestClient
 	defer func() {
-		initEnvWithLatestClient = originalInitEnv
+		resource.InitEnvWithLatestClient = originalInitEnv
 	}()
 
 	testCases := map[string]struct {
 		req            handler.Request
-		currentModel   *Model
+		currentModel   *resource.Model
 		mockSetup      func(*mockadmin.CloudBackupsApi)
 		expectedStatus handler.Status
 		expectedCount  int
@@ -515,7 +625,7 @@ func TestListWithMocks(t *testing.T) {
 			},
 			currentModel: createTestModel(),
 			mockSetup: func(m *mockadmin.CloudBackupsApi) {
-				req := admin20250312010.GetCompliancePolicyApiRequest{ApiService: m}
+				req := admin.GetCompliancePolicyApiRequest{ApiService: m}
 				m.EXPECT().GetCompliancePolicy(mock.Anything, mock.Anything).Return(req)
 				policy := createTestPolicy()
 				m.EXPECT().GetCompliancePolicyExecute(mock.Anything).Return(policy, &http.Response{StatusCode: 200}, nil)
@@ -529,7 +639,7 @@ func TestListWithMocks(t *testing.T) {
 			},
 			currentModel: createTestModel(),
 			mockSetup: func(m *mockadmin.CloudBackupsApi) {
-				req := admin20250312010.GetCompliancePolicyApiRequest{ApiService: m}
+				req := admin.GetCompliancePolicyApiRequest{ApiService: m}
 				m.EXPECT().GetCompliancePolicy(mock.Anything, mock.Anything).Return(req)
 				m.EXPECT().GetCompliancePolicyExecute(mock.Anything).Return(nil, &http.Response{StatusCode: 404}, fmt.Errorf("not found"))
 			},
@@ -542,7 +652,7 @@ func TestListWithMocks(t *testing.T) {
 			},
 			currentModel: createTestModel(),
 			mockSetup: func(m *mockadmin.CloudBackupsApi) {
-				req := admin20250312010.GetCompliancePolicyApiRequest{ApiService: m}
+				req := admin.GetCompliancePolicyApiRequest{ApiService: m}
 				m.EXPECT().GetCompliancePolicy(mock.Anything, mock.Anything).Return(req)
 				m.EXPECT().GetCompliancePolicyExecute(mock.Anything).Return(nil, &http.Response{StatusCode: 500}, fmt.Errorf("list failed"))
 			},
@@ -555,7 +665,7 @@ func TestListWithMocks(t *testing.T) {
 			},
 			currentModel: createTestModel(),
 			mockSetup: func(m *mockadmin.CloudBackupsApi) {
-				req := admin20250312010.GetCompliancePolicyApiRequest{ApiService: m}
+				req := admin.GetCompliancePolicyApiRequest{ApiService: m}
 				m.EXPECT().GetCompliancePolicy(mock.Anything, mock.Anything).Return(req)
 				m.EXPECT().GetCompliancePolicyExecute(mock.Anything).Return(nil, nil, fmt.Errorf("network error"))
 			},
@@ -569,14 +679,14 @@ func TestListWithMocks(t *testing.T) {
 			mockApi := mockadmin.NewCloudBackupsApi(t)
 			tc.mockSetup(mockApi)
 
-			mockClient := &admin20250312010.APIClient{}
+			mockClient := &admin.APIClient{}
 			mockClient.CloudBackupsApi = mockApi
 
-			initEnvWithLatestClient = func(req handler.Request, currentModel *Model, requiredFields []string) (*admin20250312010.APIClient, *handler.ProgressEvent) {
+			resource.InitEnvWithLatestClient = func(req handler.Request, currentModel *resource.Model, requiredFields []string) (*admin.APIClient, *handler.ProgressEvent) {
 				return mockClient, nil
 			}
 
-			event, err := List(tc.req, nil, tc.currentModel)
+			event, err := resource.List(tc.req, nil, tc.currentModel)
 
 			require.NoError(t, err)
 			assert.Equal(t, tc.expectedStatus, event.OperationStatus)

@@ -1,13 +1,18 @@
 # MongoDB::Atlas::BackupCompliancePolicy
 
-Congratulations on starting development!
+## Description
 
-Next steps:
+Resource for managing [Backup Compliance Policy](https://www.mongodb.com/docs/api/doc/atlas-admin-api-v2/group/endpoint-cloud-backups/operation/updateCompliancePolicy). Backup Compliance Policy prevents any user, regardless of role, from modifying or deleting specific cluster settings, backups, and backup configurations. When enabled, the Backup Compliance Policy will be applied as the minimum policy for all clusters and backups in the project.
 
-1. Populate the JSON schema describing your resource, `mongodb-atlas-backupcompliancepolicy.json`
-2. The RPDK will automatically generate the correct resource model from the
-   schema whenever the project is built via Make.
-   You can also do this manually with the following command: `cfn-cli generate`
-3. Implement your resource handlers by adding code to provision your resources in your resource handler's methods.
+## Requirements
 
-Please don't modify files `model.go and main.go`, as they will be automatically overwritten.
+To securely give CloudFormation access to your Atlas credentials, you must
+set up an [AWS Profile](/README.md#mongodb-atlas-api-keys-credential-management).
+
+## Attributes and Parameters
+
+See the [resource docs](docs/README.md).
+
+## CloudFormation Examples
+
+See the examples [CFN Template](/examples/backup-compliance-policy/README.md) for example resource.

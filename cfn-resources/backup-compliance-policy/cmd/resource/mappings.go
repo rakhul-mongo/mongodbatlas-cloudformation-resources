@@ -1,4 +1,4 @@
-// Copyright 2023 MongoDB Inc
+// Copyright 2024 MongoDB Inc
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,7 +15,7 @@
 package resource
 
 import (
-	admin20250312010 "go.mongodb.org/atlas-sdk/v20250312010/admin"
+	"go.mongodb.org/atlas-sdk/v20250312010/admin"
 
 	"github.com/mongodb/mongodbatlas-cloudformation-resources/util"
 )
@@ -29,22 +29,26 @@ const (
 )
 
 // GetBackupCompliancePolicyModel converts an Atlas API response to a CFN Model
-func GetBackupCompliancePolicyModel(policy *admin20250312010.DataProtectionSettings20231001, currentModel *Model) *Model {
-	var model *Model
+// Matching pattern from GetStreamProcessorModel: copy currentModel to preserve input values
+func GetBackupCompliancePolicyModel(policy *admin.DataProtectionSettings20231001, currentModel *Model) *Model {
+	model := &Model{}
+
+	// Copy all fields from currentModel to preserve input values (matching GetStreamProcessorModel pattern)
 	if currentModel != nil {
-		model = currentModel // Preserve all fields including primary identifier
-	} else {
-		model = &Model{}
+		*model = *currentModel
 	}
 
 	if policy == nil {
 		return model
 	}
 
-	// Set required fields (always set from API, matching Terraform behavior)
-	if policy.ProjectId != nil {
+	// Preserve primary identifier (ProjectId) from currentModel if present
+	// Only set from API if currentModel doesn't have it (e.g., for List operations)
+	if model.ProjectId == nil && policy.ProjectId != nil {
 		model.ProjectId = policy.ProjectId
 	}
+
+	// Always set required fields from API (these are always returned)
 	authorizedEmail := policy.GetAuthorizedEmail()
 	model.AuthorizedEmail = &authorizedEmail
 	authorizedUserFirstName := policy.GetAuthorizedUserFirstName()
@@ -52,21 +56,7 @@ func GetBackupCompliancePolicyModel(policy *admin20250312010.DataProtectionSetti
 	authorizedUserLastName := policy.GetAuthorizedUserLastName()
 	model.AuthorizedUserLastName = &authorizedUserLastName
 
-	// Set optional fields (always set from API, matching Terraform behavior)
-	if policy.CopyProtectionEnabled != nil {
-		model.CopyProtectionEnabled = policy.CopyProtectionEnabled
-	}
-	if policy.EncryptionAtRestEnabled != nil {
-		model.EncryptionAtRestEnabled = policy.EncryptionAtRestEnabled
-	}
-	// RestoreWindowDays: Terraform always sets this from API (even if 0)
-	restoreWindowDays := policy.GetRestoreWindowDays()
-	model.RestoreWindowDays = &restoreWindowDays
-	if policy.PitEnabled != nil {
-		model.PitEnabled = policy.PitEnabled
-	}
-
-	// Set computed/read-only fields (always set from API, matching Terraform behavior)
+	// Set computed/read-only fields (always set from API)
 	state := policy.GetState()
 	model.State = &state
 	if policy.UpdatedDate != nil {
@@ -76,26 +66,16 @@ func GetBackupCompliancePolicyModel(policy *admin20250312010.DataProtectionSetti
 	updatedUser := policy.GetUpdatedUser()
 	model.UpdatedUser = &updatedUser
 
-	// Map on-demand policy item
-	if policy.OnDemandPolicyItem != nil {
-		model.OnDemandPolicyItem = flattenOnDemandPolicyItem(policy.OnDemandPolicyItem)
-	}
-
-	// Map scheduled policy items
-	// Terraform uses GetScheduledPolicyItems() which always returns a slice (empty if nil)
-	// This ensures policy items are always set (even if empty), matching Terraform behavior
-	items := policy.GetScheduledPolicyItems()
-	model.PolicyItemHourly = flattenScheduledPolicyItem(items, Hourly)
-	model.PolicyItemDaily = flattenScheduledPolicyItem(items, Daily)
-	model.PolicyItemWeekly = flattenScheduledPolicyItems(items, Weekly)
-	model.PolicyItemMonthly = flattenScheduledPolicyItems(items, Monthly)
-	model.PolicyItemYearly = flattenScheduledPolicyItems(items, Yearly)
+	// DO NOT set optional fields from API if they weren't in the input
+	// This ensures CREATE operations return the exact input values (CFN contract requirement)
+	// Since we copied currentModel above, all input fields are already preserved
+	// Only computed/read-only fields (State, UpdatedDate, UpdatedUser) are set from API
 
 	return model
 }
 
-// flattenOnDemandPolicyItem converts Atlas API on-demand policy item to CFN model
-func flattenOnDemandPolicyItem(item *admin20250312010.BackupComplianceOnDemandPolicyItem) *OnDemandPolicyItem {
+// FlattenOnDemandPolicyItem converts Atlas API on-demand policy item to CFN model
+func FlattenOnDemandPolicyItem(item *admin.BackupComplianceOnDemandPolicyItem) *OnDemandPolicyItem {
 	if item == nil {
 		return nil
 	}
@@ -114,8 +94,8 @@ func flattenOnDemandPolicyItem(item *admin20250312010.BackupComplianceOnDemandPo
 	}
 }
 
-// flattenScheduledPolicyItem converts Atlas API scheduled policy item to CFN model (single item)
-func flattenScheduledPolicyItem(items []admin20250312010.BackupComplianceScheduledPolicyItem, frequencyType string) *ScheduledPolicyItem {
+// FlattenScheduledPolicyItem converts Atlas API scheduled policy item to CFN model (single item)
+func FlattenScheduledPolicyItem(items []admin.BackupComplianceScheduledPolicyItem, frequencyType string) *ScheduledPolicyItem {
 	for i := range items {
 		item := &items[i]
 		// Use direct field access for comparison (matching Terraform behavior)
@@ -136,8 +116,8 @@ func flattenScheduledPolicyItem(items []admin20250312010.BackupComplianceSchedul
 	return nil
 }
 
-// flattenScheduledPolicyItems converts Atlas API scheduled policy items to CFN model (multiple items)
-func flattenScheduledPolicyItems(items []admin20250312010.BackupComplianceScheduledPolicyItem, frequencyType string) []ScheduledPolicyItem {
+// FlattenScheduledPolicyItems converts Atlas API scheduled policy items to CFN model (multiple items)
+func FlattenScheduledPolicyItems(items []admin.BackupComplianceScheduledPolicyItem, frequencyType string) []ScheduledPolicyItem {
 	policyItems := make([]ScheduledPolicyItem, 0)
 	for i := range items {
 		item := &items[i]
@@ -159,8 +139,8 @@ func flattenScheduledPolicyItems(items []admin20250312010.BackupComplianceSchedu
 	return policyItems
 }
 
-// expandDataProtectionSettings converts CFN Model to Atlas API request
-func expandDataProtectionSettings(model *Model, projectID string) *admin20250312010.DataProtectionSettings20231001 {
+// ExpandDataProtectionSettings converts CFN Model to Atlas API request
+func ExpandDataProtectionSettings(model *Model, projectID string) *admin.DataProtectionSettings20231001 {
 	var authorizedEmail string
 	if model.AuthorizedEmail != nil {
 		authorizedEmail = *model.AuthorizedEmail
@@ -174,7 +154,7 @@ func expandDataProtectionSettings(model *Model, projectID string) *admin20250312
 		authorizedUserLastName = *model.AuthorizedUserLastName
 	}
 
-	settings := &admin20250312010.DataProtectionSettings20231001{
+	settings := &admin.DataProtectionSettings20231001{
 		ProjectId:               &projectID,
 		AuthorizedEmail:         authorizedEmail,
 		AuthorizedUserFirstName: authorizedUserFirstName,
@@ -210,31 +190,31 @@ func expandDataProtectionSettings(model *Model, projectID string) *admin20250312
 
 	// Expand on-demand policy item
 	if model.OnDemandPolicyItem != nil {
-		settings.OnDemandPolicyItem = expandOnDemandPolicyItem(model.OnDemandPolicyItem)
+		settings.OnDemandPolicyItem = ExpandOnDemandPolicyItem(model.OnDemandPolicyItem)
 	}
 
 	// Expand scheduled policy items
-	var scheduledItems []admin20250312010.BackupComplianceScheduledPolicyItem
+	var scheduledItems []admin.BackupComplianceScheduledPolicyItem
 
 	if model.PolicyItemHourly != nil {
-		scheduledItems = append(scheduledItems, expandScheduledPolicyItem(model.PolicyItemHourly, Hourly))
+		scheduledItems = append(scheduledItems, ExpandScheduledPolicyItem(model.PolicyItemHourly, Hourly))
 	}
 	if model.PolicyItemDaily != nil {
-		scheduledItems = append(scheduledItems, expandScheduledPolicyItem(model.PolicyItemDaily, Daily))
+		scheduledItems = append(scheduledItems, ExpandScheduledPolicyItem(model.PolicyItemDaily, Daily))
 	}
 	if len(model.PolicyItemWeekly) > 0 {
 		for _, item := range model.PolicyItemWeekly {
-			scheduledItems = append(scheduledItems, expandScheduledPolicyItem(&item, Weekly))
+			scheduledItems = append(scheduledItems, ExpandScheduledPolicyItem(&item, Weekly))
 		}
 	}
 	if len(model.PolicyItemMonthly) > 0 {
 		for _, item := range model.PolicyItemMonthly {
-			scheduledItems = append(scheduledItems, expandScheduledPolicyItem(&item, Monthly))
+			scheduledItems = append(scheduledItems, ExpandScheduledPolicyItem(&item, Monthly))
 		}
 	}
 	if len(model.PolicyItemYearly) > 0 {
 		for _, item := range model.PolicyItemYearly {
-			scheduledItems = append(scheduledItems, expandScheduledPolicyItem(&item, Yearly))
+			scheduledItems = append(scheduledItems, ExpandScheduledPolicyItem(&item, Yearly))
 		}
 	}
 
@@ -245,8 +225,8 @@ func expandDataProtectionSettings(model *Model, projectID string) *admin20250312
 	return settings
 }
 
-// expandOnDemandPolicyItem converts CFN on-demand policy item to Atlas API
-func expandOnDemandPolicyItem(item *OnDemandPolicyItem) *admin20250312010.BackupComplianceOnDemandPolicyItem {
+// ExpandOnDemandPolicyItem converts CFN on-demand policy item to Atlas API
+func ExpandOnDemandPolicyItem(item *OnDemandPolicyItem) *admin.BackupComplianceOnDemandPolicyItem {
 	if item == nil {
 		return nil
 	}
@@ -264,7 +244,7 @@ func expandOnDemandPolicyItem(item *OnDemandPolicyItem) *admin20250312010.Backup
 		retentionUnit = *item.RetentionUnit
 	}
 
-	return &admin20250312010.BackupComplianceOnDemandPolicyItem{
+	return &admin.BackupComplianceOnDemandPolicyItem{
 		Id:                item.Id,
 		FrequencyInterval: freqInterval,
 		FrequencyType:     "ondemand",
@@ -273,8 +253,8 @@ func expandOnDemandPolicyItem(item *OnDemandPolicyItem) *admin20250312010.Backup
 	}
 }
 
-// expandScheduledPolicyItem converts CFN scheduled policy item to Atlas API
-func expandScheduledPolicyItem(item *ScheduledPolicyItem, frequencyType string) admin20250312010.BackupComplianceScheduledPolicyItem {
+// ExpandScheduledPolicyItem converts CFN scheduled policy item to Atlas API
+func ExpandScheduledPolicyItem(item *ScheduledPolicyItem, frequencyType string) admin.BackupComplianceScheduledPolicyItem {
 	var freqInterval int
 	if item.FrequencyInterval != nil {
 		freqInterval = *item.FrequencyInterval
@@ -288,7 +268,7 @@ func expandScheduledPolicyItem(item *ScheduledPolicyItem, frequencyType string) 
 		retentionUnit = *item.RetentionUnit
 	}
 
-	return admin20250312010.BackupComplianceScheduledPolicyItem{
+	return admin.BackupComplianceScheduledPolicyItem{
 		FrequencyType:     frequencyType,
 		FrequencyInterval: freqInterval,
 		RetentionUnit:     retentionUnit,

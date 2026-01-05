@@ -12,130 +12,32 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package resource
+package resource_test
 
 import (
 	"testing"
-	"time"
 
+	"go.mongodb.org/atlas-sdk/v20250312010/admin"
+
+	"github.com/mongodb/mongodbatlas-cloudformation-resources/backup-compliance-policy/cmd/resource"
 	"github.com/mongodb/mongodbatlas-cloudformation-resources/util"
 	"github.com/stretchr/testify/assert"
-	admin20250312010 "go.mongodb.org/atlas-sdk/v20250312010/admin"
 )
-
-// Helper function to create a test model
-func createTestModel() *Model {
-	projectID := "507f1f77bcf86cd799439011"
-	authorizedEmail := "test@example.com"
-	authorizedUserFirstName := "John"
-	authorizedUserLastName := "Doe"
-
-	return &Model{
-		ProjectId:               &projectID,
-		AuthorizedEmail:         &authorizedEmail,
-		AuthorizedUserFirstName: &authorizedUserFirstName,
-		AuthorizedUserLastName:  &authorizedUserLastName,
-	}
-}
-
-// Helper function to create a test API policy response
-func createTestPolicy() *admin20250312010.DataProtectionSettings20231001 {
-	projectID := "507f1f77bcf86cd799439011"
-	authorizedEmail := "test@example.com"
-	authorizedUserFirstName := "John"
-	authorizedUserLastName := "Doe"
-	state := "ACTIVE"
-	updatedUser := "user@example.com"
-	copyProtectionEnabled := false
-	encryptionAtRestEnabled := true
-	pitEnabled := false
-	restoreWindowDays := 7
-	updatedDate := time.Now()
-
-	onDemandId := "507f1f77bcf86cd799439020"
-	onDemandItem := admin20250312010.BackupComplianceOnDemandPolicyItem{
-		Id:                &onDemandId,
-		FrequencyInterval: 1,
-		FrequencyType:     "ondemand",
-		RetentionUnit:     "days",
-		RetentionValue:    30,
-	}
-
-	hourlyId := "507f1f77bcf86cd799439021"
-	hourlyItem := admin20250312010.BackupComplianceScheduledPolicyItem{
-		Id:                &hourlyId,
-		FrequencyType:     "hourly",
-		FrequencyInterval: 6,
-		RetentionUnit:     "days",
-		RetentionValue:    7,
-	}
-
-	dailyId := "507f1f77bcf86cd799439022"
-	dailyItem := admin20250312010.BackupComplianceScheduledPolicyItem{
-		Id:                &dailyId,
-		FrequencyType:     "daily",
-		FrequencyInterval: 1,
-		RetentionUnit:     "days",
-		RetentionValue:    30,
-	}
-
-	weeklyId1 := "507f1f77bcf86cd799439023"
-	weeklyItem1 := admin20250312010.BackupComplianceScheduledPolicyItem{
-		Id:                &weeklyId1,
-		FrequencyType:     "weekly",
-		FrequencyInterval: 1,
-		RetentionUnit:     "weeks",
-		RetentionValue:    4,
-	}
-
-	weeklyId2 := "507f1f77bcf86cd799439024"
-	weeklyItem2 := admin20250312010.BackupComplianceScheduledPolicyItem{
-		Id:                &weeklyId2,
-		FrequencyType:     "weekly",
-		FrequencyInterval: 2,
-		RetentionUnit:     "weeks",
-		RetentionValue:    8,
-	}
-
-	scheduledItems := []admin20250312010.BackupComplianceScheduledPolicyItem{
-		hourlyItem,
-		dailyItem,
-		weeklyItem1,
-		weeklyItem2,
-	}
-
-	policy := &admin20250312010.DataProtectionSettings20231001{
-		ProjectId:               &projectID,
-		AuthorizedEmail:         authorizedEmail,
-		AuthorizedUserFirstName: authorizedUserFirstName,
-		AuthorizedUserLastName:  authorizedUserLastName,
-		State:                   &state,
-		UpdatedUser:             &updatedUser,
-		UpdatedDate:             &updatedDate,
-		CopyProtectionEnabled:   &copyProtectionEnabled,
-		EncryptionAtRestEnabled: &encryptionAtRestEnabled,
-		PitEnabled:              &pitEnabled,
-		RestoreWindowDays:       &restoreWindowDays,
-		OnDemandPolicyItem:      &onDemandItem,
-		ScheduledPolicyItems:    &scheduledItems,
-	}
-	return policy
-}
 
 func TestFlattenOnDemandPolicyItem(t *testing.T) {
 	testCases := map[string]struct {
-		item           *admin20250312010.BackupComplianceOnDemandPolicyItem
-		expectedResult *OnDemandPolicyItem
+		item           *admin.BackupComplianceOnDemandPolicyItem
+		expectedResult *resource.OnDemandPolicyItem
 	}{
 		"withAllFields": {
-			item: &admin20250312010.BackupComplianceOnDemandPolicyItem{
+			item: &admin.BackupComplianceOnDemandPolicyItem{
 				Id:                func() *string { s := "507f1f77bcf86cd799439020"; return &s }(),
 				FrequencyInterval: 1,
 				FrequencyType:     "ondemand",
 				RetentionUnit:     "days",
 				RetentionValue:    30,
 			},
-			expectedResult: &OnDemandPolicyItem{
+			expectedResult: &resource.OnDemandPolicyItem{
 				Id:                func() *string { s := "507f1f77bcf86cd799439020"; return &s }(),
 				FrequencyInterval: func() *int { i := 1; return &i }(),
 				FrequencyType:     func() *string { s := "ondemand"; return &s }(),
@@ -151,7 +53,7 @@ func TestFlattenOnDemandPolicyItem(t *testing.T) {
 
 	for name, tc := range testCases {
 		t.Run(name, func(t *testing.T) {
-			result := flattenOnDemandPolicyItem(tc.item)
+			result := resource.FlattenOnDemandPolicyItem(tc.item)
 			if tc.expectedResult == nil {
 				assert.Nil(t, result)
 			} else {
@@ -167,12 +69,12 @@ func TestFlattenOnDemandPolicyItem(t *testing.T) {
 
 func TestFlattenScheduledPolicyItem(t *testing.T) {
 	testCases := map[string]struct {
-		items          []admin20250312010.BackupComplianceScheduledPolicyItem
+		items          []admin.BackupComplianceScheduledPolicyItem
 		frequencyType  string
-		expectedResult *ScheduledPolicyItem
+		expectedResult *resource.ScheduledPolicyItem
 	}{
 		"hourlyItem": {
-			items: []admin20250312010.BackupComplianceScheduledPolicyItem{
+			items: []admin.BackupComplianceScheduledPolicyItem{
 				{
 					Id:                func() *string { s := "507f1f77bcf86cd799439021"; return &s }(),
 					FrequencyType:     "hourly",
@@ -182,7 +84,7 @@ func TestFlattenScheduledPolicyItem(t *testing.T) {
 				},
 			},
 			frequencyType: "hourly",
-			expectedResult: &ScheduledPolicyItem{
+			expectedResult: &resource.ScheduledPolicyItem{
 				Id:                func() *string { s := "507f1f77bcf86cd799439021"; return &s }(),
 				FrequencyType:     func() *string { s := "hourly"; return &s }(),
 				FrequencyInterval: func() *int { i := 6; return &i }(),
@@ -191,7 +93,7 @@ func TestFlattenScheduledPolicyItem(t *testing.T) {
 			},
 		},
 		"notFound": {
-			items: []admin20250312010.BackupComplianceScheduledPolicyItem{
+			items: []admin.BackupComplianceScheduledPolicyItem{
 				{
 					FrequencyType:     "hourly",
 					FrequencyInterval: 6,
@@ -201,7 +103,7 @@ func TestFlattenScheduledPolicyItem(t *testing.T) {
 			expectedResult: nil,
 		},
 		"emptyItems": {
-			items:          []admin20250312010.BackupComplianceScheduledPolicyItem{},
+			items:          []admin.BackupComplianceScheduledPolicyItem{},
 			frequencyType:  "hourly",
 			expectedResult: nil,
 		},
@@ -209,7 +111,7 @@ func TestFlattenScheduledPolicyItem(t *testing.T) {
 
 	for name, tc := range testCases {
 		t.Run(name, func(t *testing.T) {
-			result := flattenScheduledPolicyItem(tc.items, tc.frequencyType)
+			result := resource.FlattenScheduledPolicyItem(tc.items, tc.frequencyType)
 			if tc.expectedResult == nil {
 				assert.Nil(t, result)
 			} else {
@@ -225,12 +127,12 @@ func TestFlattenScheduledPolicyItem(t *testing.T) {
 
 func TestFlattenScheduledPolicyItems(t *testing.T) {
 	testCases := map[string]struct {
-		items         []admin20250312010.BackupComplianceScheduledPolicyItem
+		items         []admin.BackupComplianceScheduledPolicyItem
 		frequencyType string
 		expectedLen   int
 	}{
 		"weeklyItems": {
-			items: []admin20250312010.BackupComplianceScheduledPolicyItem{
+			items: []admin.BackupComplianceScheduledPolicyItem{
 				{
 					Id:                func() *string { s := "507f1f77bcf86cd799439023"; return &s }(),
 					FrequencyType:     "weekly",
@@ -257,7 +159,7 @@ func TestFlattenScheduledPolicyItems(t *testing.T) {
 			expectedLen:   2,
 		},
 		"noMatchingItems": {
-			items: []admin20250312010.BackupComplianceScheduledPolicyItem{
+			items: []admin.BackupComplianceScheduledPolicyItem{
 				{
 					FrequencyType: "hourly",
 				},
@@ -272,7 +174,7 @@ func TestFlattenScheduledPolicyItems(t *testing.T) {
 
 	for name, tc := range testCases {
 		t.Run(name, func(t *testing.T) {
-			result := flattenScheduledPolicyItems(tc.items, tc.frequencyType)
+			result := resource.FlattenScheduledPolicyItems(tc.items, tc.frequencyType)
 			assert.Equal(t, tc.expectedLen, len(result))
 		})
 	}
@@ -280,17 +182,17 @@ func TestFlattenScheduledPolicyItems(t *testing.T) {
 
 func TestExpandOnDemandPolicyItem(t *testing.T) {
 	testCases := map[string]struct {
-		item           *OnDemandPolicyItem
-		expectedResult *admin20250312010.BackupComplianceOnDemandPolicyItem
+		item           *resource.OnDemandPolicyItem
+		expectedResult *admin.BackupComplianceOnDemandPolicyItem
 	}{
 		"withAllFields": {
-			item: &OnDemandPolicyItem{
+			item: &resource.OnDemandPolicyItem{
 				Id:                func() *string { s := "507f1f77bcf86cd799439020"; return &s }(),
 				FrequencyInterval: func() *int { i := 1; return &i }(),
 				RetentionUnit:     func() *string { s := "days"; return &s }(),
 				RetentionValue:    func() *int { i := 30; return &i }(),
 			},
-			expectedResult: &admin20250312010.BackupComplianceOnDemandPolicyItem{
+			expectedResult: &admin.BackupComplianceOnDemandPolicyItem{
 				Id:                func() *string { s := "507f1f77bcf86cd799439020"; return &s }(),
 				FrequencyInterval: 1,
 				FrequencyType:     "ondemand",
@@ -306,7 +208,7 @@ func TestExpandOnDemandPolicyItem(t *testing.T) {
 
 	for name, tc := range testCases {
 		t.Run(name, func(t *testing.T) {
-			result := expandOnDemandPolicyItem(tc.item)
+			result := resource.ExpandOnDemandPolicyItem(tc.item)
 			if tc.expectedResult == nil {
 				assert.Nil(t, result)
 			} else {
@@ -322,18 +224,18 @@ func TestExpandOnDemandPolicyItem(t *testing.T) {
 
 func TestExpandScheduledPolicyItem(t *testing.T) {
 	testCases := map[string]struct {
-		item           *ScheduledPolicyItem
+		item           *resource.ScheduledPolicyItem
 		frequencyType  string
-		expectedResult admin20250312010.BackupComplianceScheduledPolicyItem
+		expectedResult admin.BackupComplianceScheduledPolicyItem
 	}{
 		"hourlyItem": {
-			item: &ScheduledPolicyItem{
+			item: &resource.ScheduledPolicyItem{
 				FrequencyInterval: func() *int { i := 6; return &i }(),
 				RetentionUnit:     func() *string { s := "days"; return &s }(),
 				RetentionValue:    func() *int { i := 7; return &i }(),
 			},
 			frequencyType: "hourly",
-			expectedResult: admin20250312010.BackupComplianceScheduledPolicyItem{
+			expectedResult: admin.BackupComplianceScheduledPolicyItem{
 				FrequencyType:     "hourly",
 				FrequencyInterval: 6,
 				RetentionUnit:     "days",
@@ -344,7 +246,7 @@ func TestExpandScheduledPolicyItem(t *testing.T) {
 
 	for name, tc := range testCases {
 		t.Run(name, func(t *testing.T) {
-			result := expandScheduledPolicyItem(tc.item, tc.frequencyType)
+			result := resource.ExpandScheduledPolicyItem(tc.item, tc.frequencyType)
 			assert.Equal(t, tc.expectedResult.FrequencyType, result.FrequencyType)
 			assert.Equal(t, tc.expectedResult.FrequencyInterval, result.FrequencyInterval)
 			assert.Equal(t, tc.expectedResult.RetentionUnit, result.RetentionUnit)
@@ -355,14 +257,14 @@ func TestExpandScheduledPolicyItem(t *testing.T) {
 
 func TestGetBackupCompliancePolicyModel(t *testing.T) {
 	testCases := map[string]struct {
-		policy       *admin20250312010.DataProtectionSettings20231001
-		currentModel *Model
-		validateFunc func(t *testing.T, model *Model)
+		policy       *admin.DataProtectionSettings20231001
+		currentModel *resource.Model
+		validateFunc func(t *testing.T, model *resource.Model)
 	}{
 		"completePolicy": {
 			policy:       createTestPolicy(),
 			currentModel: createTestModel(),
-			validateFunc: func(t *testing.T, model *Model) {
+			validateFunc: func(t *testing.T, model *resource.Model) {
 				assert.Equal(t, "507f1f77bcf86cd799439011", util.SafeString(model.ProjectId))
 				assert.Equal(t, "test@example.com", util.SafeString(model.AuthorizedEmail))
 				assert.Equal(t, "John", util.SafeString(model.AuthorizedUserFirstName))
@@ -385,19 +287,19 @@ func TestGetBackupCompliancePolicyModel(t *testing.T) {
 		"nilPolicy": {
 			policy:       nil,
 			currentModel: createTestModel(),
-			validateFunc: func(t *testing.T, model *Model) {
+			validateFunc: func(t *testing.T, model *resource.Model) {
 				// Should preserve currentModel fields
 				assert.Equal(t, "507f1f77bcf86cd799439011", util.SafeString(model.ProjectId))
 			},
 		},
 		"nilScheduledItems": {
-			policy: func() *admin20250312010.DataProtectionSettings20231001 {
+			policy: func() *admin.DataProtectionSettings20231001 {
 				p := createTestPolicy()
 				p.ScheduledPolicyItems = nil
 				return p
 			}(),
 			currentModel: createTestModel(),
-			validateFunc: func(t *testing.T, model *Model) {
+			validateFunc: func(t *testing.T, model *resource.Model) {
 				// GetScheduledPolicyItems() returns empty slice when nil, so all policy items should be nil or empty
 				assert.Nil(t, model.PolicyItemHourly)
 				assert.Nil(t, model.PolicyItemDaily)
@@ -407,7 +309,7 @@ func TestGetBackupCompliancePolicyModel(t *testing.T) {
 		"nilCurrentModel": {
 			policy:       createTestPolicy(),
 			currentModel: nil,
-			validateFunc: func(t *testing.T, model *Model) {
+			validateFunc: func(t *testing.T, model *resource.Model) {
 				assert.NotNil(t, model)
 				assert.Equal(t, "507f1f77bcf86cd799439011", util.SafeString(model.ProjectId))
 			},
@@ -416,7 +318,7 @@ func TestGetBackupCompliancePolicyModel(t *testing.T) {
 
 	for name, tc := range testCases {
 		t.Run(name, func(t *testing.T) {
-			result := GetBackupCompliancePolicyModel(tc.policy, tc.currentModel)
+			result := resource.GetBackupCompliancePolicyModel(tc.policy, tc.currentModel)
 			if tc.validateFunc != nil {
 				tc.validateFunc(t, result)
 			}
@@ -426,12 +328,12 @@ func TestGetBackupCompliancePolicyModel(t *testing.T) {
 
 func TestExpandDataProtectionSettings(t *testing.T) {
 	testCases := map[string]struct {
-		model        *Model
+		model        *resource.Model
 		projectID    string
-		validateFunc func(t *testing.T, settings *admin20250312010.DataProtectionSettings20231001)
+		validateFunc func(t *testing.T, settings *admin.DataProtectionSettings20231001)
 	}{
 		"completeModel": {
-			model: func() *Model {
+			model: func() *resource.Model {
 				m := createTestModel()
 				copyProtection := true
 				encryptionAtRest := true
@@ -446,7 +348,7 @@ func TestExpandDataProtectionSettings(t *testing.T) {
 				freqInterval1 := 1
 				retentionVal30 := 30
 				retentionUnitDays := "days"
-				m.OnDemandPolicyItem = &OnDemandPolicyItem{
+				m.OnDemandPolicyItem = &resource.OnDemandPolicyItem{
 					Id:                &onDemandId,
 					FrequencyInterval: &freqInterval1,
 					RetentionUnit:     &retentionUnitDays,
@@ -455,13 +357,13 @@ func TestExpandDataProtectionSettings(t *testing.T) {
 
 				freqInterval6 := 6
 				retentionVal7 := 7
-				m.PolicyItemHourly = &ScheduledPolicyItem{
+				m.PolicyItemHourly = &resource.ScheduledPolicyItem{
 					FrequencyInterval: &freqInterval6,
 					RetentionUnit:     &retentionUnitDays,
 					RetentionValue:    &retentionVal7,
 				}
 
-				m.PolicyItemDaily = &ScheduledPolicyItem{
+				m.PolicyItemDaily = &resource.ScheduledPolicyItem{
 					FrequencyInterval: &freqInterval1,
 					RetentionUnit:     &retentionUnitDays,
 					RetentionValue:    &retentionVal30,
@@ -469,7 +371,7 @@ func TestExpandDataProtectionSettings(t *testing.T) {
 
 				retentionUnitWeeks := "weeks"
 				retentionVal4 := 4
-				m.PolicyItemWeekly = []ScheduledPolicyItem{
+				m.PolicyItemWeekly = []resource.ScheduledPolicyItem{
 					{
 						FrequencyInterval: &freqInterval1,
 						RetentionUnit:     &retentionUnitWeeks,
@@ -480,7 +382,7 @@ func TestExpandDataProtectionSettings(t *testing.T) {
 				return m
 			}(),
 			projectID: "507f1f77bcf86cd799439011",
-			validateFunc: func(t *testing.T, settings *admin20250312010.DataProtectionSettings20231001) {
+			validateFunc: func(t *testing.T, settings *admin.DataProtectionSettings20231001) {
 				assert.Equal(t, "507f1f77bcf86cd799439011", util.SafeString(settings.ProjectId))
 				assert.Equal(t, "test@example.com", settings.AuthorizedEmail)
 				assert.Equal(t, "John", settings.AuthorizedUserFirstName)
@@ -501,7 +403,7 @@ func TestExpandDataProtectionSettings(t *testing.T) {
 		"withDefaults": {
 			model:     createTestModel(),
 			projectID: "507f1f77bcf86cd799439011",
-			validateFunc: func(t *testing.T, settings *admin20250312010.DataProtectionSettings20231001) {
+			validateFunc: func(t *testing.T, settings *admin.DataProtectionSettings20231001) {
 				// Boolean fields should default to false
 				assert.NotNil(t, settings.CopyProtectionEnabled)
 				assert.False(t, *settings.CopyProtectionEnabled)
@@ -515,7 +417,7 @@ func TestExpandDataProtectionSettings(t *testing.T) {
 			},
 		},
 		"withAllPolicyItems": {
-			model: func() *Model {
+			model: func() *resource.Model {
 				m := createTestModel()
 				freqInterval6 := 6
 				freqInterval1 := 1
@@ -528,31 +430,31 @@ func TestExpandDataProtectionSettings(t *testing.T) {
 				retentionVal6 := 6
 				retentionUnitYears := "years"
 				retentionVal1 := 1
-				m.PolicyItemHourly = &ScheduledPolicyItem{
+				m.PolicyItemHourly = &resource.ScheduledPolicyItem{
 					FrequencyInterval: &freqInterval6,
 					RetentionUnit:     &retentionUnitDays,
 					RetentionValue:    &retentionVal7,
 				}
-				m.PolicyItemDaily = &ScheduledPolicyItem{
+				m.PolicyItemDaily = &resource.ScheduledPolicyItem{
 					FrequencyInterval: &freqInterval1,
 					RetentionUnit:     &retentionUnitDays,
 					RetentionValue:    &retentionVal30,
 				}
-				m.PolicyItemWeekly = []ScheduledPolicyItem{
+				m.PolicyItemWeekly = []resource.ScheduledPolicyItem{
 					{
 						FrequencyInterval: &freqInterval1,
 						RetentionUnit:     &retentionUnitWeeks,
 						RetentionValue:    &retentionVal4,
 					},
 				}
-				m.PolicyItemMonthly = []ScheduledPolicyItem{
+				m.PolicyItemMonthly = []resource.ScheduledPolicyItem{
 					{
 						FrequencyInterval: &freqInterval1,
 						RetentionUnit:     &retentionUnitMonths,
 						RetentionValue:    &retentionVal6,
 					},
 				}
-				m.PolicyItemYearly = []ScheduledPolicyItem{
+				m.PolicyItemYearly = []resource.ScheduledPolicyItem{
 					{
 						FrequencyInterval: &freqInterval1,
 						RetentionUnit:     &retentionUnitYears,
@@ -562,7 +464,7 @@ func TestExpandDataProtectionSettings(t *testing.T) {
 				return m
 			}(),
 			projectID: "507f1f77bcf86cd799439011",
-			validateFunc: func(t *testing.T, settings *admin20250312010.DataProtectionSettings20231001) {
+			validateFunc: func(t *testing.T, settings *admin.DataProtectionSettings20231001) {
 				assert.NotNil(t, settings.ScheduledPolicyItems)
 				assert.Equal(t, 5, len(*settings.ScheduledPolicyItems))
 			},
@@ -570,7 +472,7 @@ func TestExpandDataProtectionSettings(t *testing.T) {
 		"withNoPolicyItems": {
 			model:     createTestModel(),
 			projectID: "507f1f77bcf86cd799439011",
-			validateFunc: func(t *testing.T, settings *admin20250312010.DataProtectionSettings20231001) {
+			validateFunc: func(t *testing.T, settings *admin.DataProtectionSettings20231001) {
 				// When no policy items are set, ScheduledPolicyItems should be nil
 				assert.Nil(t, settings.ScheduledPolicyItems)
 			},
@@ -579,7 +481,7 @@ func TestExpandDataProtectionSettings(t *testing.T) {
 
 	for name, tc := range testCases {
 		t.Run(name, func(t *testing.T) {
-			result := expandDataProtectionSettings(tc.model, tc.projectID)
+			result := resource.ExpandDataProtectionSettings(tc.model, tc.projectID)
 			if tc.validateFunc != nil {
 				tc.validateFunc(t, result)
 			}

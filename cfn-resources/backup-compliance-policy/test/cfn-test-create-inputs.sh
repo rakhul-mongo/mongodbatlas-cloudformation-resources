@@ -10,10 +10,12 @@ set -o pipefail
 
 function usage {
 	echo "Creates test inputs for Backup Compliance Policy"
+	echo "Usage: $0 <project_name> [authorized_email]"
+	echo "Creates a new project and an M10 cluster (required for Backup Compliance Policy visibility)"
 }
 
-if [ "$#" -ne 2 ]; then usage; fi
-if [[ "$*" == help ]]; then usage; fi
+if [ "$#" -lt 1 ]; then usage; exit 1; fi
+if [[ "$*" == help ]]; then usage; exit 0; fi
 
 rm -rf inputs
 mkdir inputs
@@ -34,37 +36,49 @@ if [ -z "$projectId" ]; then
 else
 	echo -e "FOUND project \"${projectName}\" with id: ${projectId}\n"
 fi
-echo -e "=====\nrun this command to clean up\n=====\nmongocli iam projects delete ${projectId} --force\n====="
 
-# Get the current user email for authorized email
-authorizedEmail="${2}"
-if [ -z "$authorizedEmail" ]; then
-	# Try to get from Atlas CLI config
-	authorizedEmail=$(atlas config get --output json | jq -r '.publicApiKey // "test@example.com"')
-	if [ "$authorizedEmail" == "null" ] || [ -z "$authorizedEmail" ]; then
-		authorizedEmail="test@example.com"
-	fi
+# Create an M10 cluster if it doesn't exist (required for Backup Compliance Policy)
+# Backup Compliance Policy is only available for projects with M10+ clusters
+clusterName="${projectName}-test-cluster"
+existingCluster=$(atlas clusters list --projectId "${projectId}" --output json | jq --arg NAME "${clusterName}" -r '.results[]? | select(.name==$NAME) | .name')
+
+if [ -z "$existingCluster" ]; then
+	echo -e "Creating M10 cluster \"${clusterName}\" (required for Backup Compliance Policy)...\n"
+	atlas clusters create "${clusterName}" \
+		--projectId "${projectId}" \
+		--backup \
+		--provider AWS \
+		--region US_EAST_1 \
+		--members 3 \
+		--tier M10 \
+		--diskSizeGB 10 \
+		--output=json
+
+	echo -e "Waiting for cluster to be ready...\n"
+	atlas clusters watch "${clusterName}" --projectId "${projectId}"
+	echo -e "Created Cluster \"${clusterName}\"\n"
+else
+	echo -e "FOUND existing cluster \"${clusterName}\"\n"
 fi
 
-jq --arg projectId "$projectId" \
-	--arg authorizedEmail "$authorizedEmail" \
-	'.ProjectId?|=$projectId |.AuthorizedEmail?|=$authorizedEmail' \
-	"$(dirname "$0")/inputs_1_create.json" >"inputs/inputs_1_create.json"
+echo -e "=====\nrun this command to clean up\n=====\natlas clusters delete ${clusterName} --projectId ${projectId} --force\nmongocli iam projects delete ${projectId} --force\n====="
 
-jq --arg projectId "$projectId" \
-	--arg authorizedEmail "$authorizedEmail" \
-	'.ProjectId?|=$projectId |.AuthorizedEmail?|=$authorizedEmail' \
-	"$(dirname "$0")/inputs_1_update.json" >"inputs/inputs_1_update.json"
+# Get the current user email for authorized email
+# Second argument is optional - if not provided, use default test email
+authorizedEmail="${2:-test@example.com}"
 
-jq --arg projectId "$projectId" \
-	--arg authorizedEmail "$authorizedEmail" \
-	'.ProjectId?|=$projectId |.AuthorizedEmail?|=$authorizedEmail' \
-	"$(dirname "$0")/inputs_2_create.json" >"inputs/inputs_2_create.json"
-
-jq --arg projectId "$projectId" \
-	--arg authorizedEmail "$authorizedEmail" \
-	'.ProjectId?|=$projectId |.AuthorizedEmail?|=$authorizedEmail' \
-	"$(dirname "$0")/inputs_2_update.json" >"inputs/inputs_2_update.json"
+WORDTOREMOVE="template."
+cd "$(dirname "$0")" || exit
+for inputFile in inputs_*; do
+	outputFile=${inputFile//$WORDTOREMOVE/}
+	jq --arg projectId "$projectId" \
+		--arg authorizedEmail "$authorizedEmail" \
+		'.ProjectId?|=$projectId |.AuthorizedEmail?|=$authorizedEmail' \
+		"$inputFile" >"../inputs/$outputFile"
+done
+cd ..
 
 ls -l inputs
+echo -e "\n===== Cleanup commands =====\n"
+echo "atlas clusters delete ${clusterName} --projectId ${projectId} --force"
 echo "mongocli iam projects delete ${projectId} --force"

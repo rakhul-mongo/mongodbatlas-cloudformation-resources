@@ -21,7 +21,7 @@ Resources:
       Handler: bootstrap
       Runtime: provided.al2
       CodeUri: bin/
-      Environment: 
-        Variables: 
+      Environment:
+        Variables:
           MODE: Test
-
+          LOG_LEVEL: debug
