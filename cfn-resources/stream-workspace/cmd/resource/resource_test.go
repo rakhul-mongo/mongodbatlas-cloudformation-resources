@@ -307,23 +307,51 @@ func TestUpdateWithMocks(t *testing.T) {
 	testCases := map[string]struct {
 		mockSetup      func(*mockadmin.StreamsApi)
 		expectedStatus handler.Status
+		validateResult func(t *testing.T, event handler.ProgressEvent)
 	}{
 		"successfulUpdate": {
 			mockSetup: func(m *mockadmin.StreamsApi) {
 				resp := createTestStreamWorkspaceResponse()
-				m.EXPECT().GetStreamWorkspace(mock.Anything, mock.Anything, mock.Anything).
-					Return(admin.GetStreamWorkspaceApiRequest{ApiService: m})
-				m.EXPECT().GetStreamWorkspaceExecute(mock.Anything).
+				// Update the region in the response to show it was updated
+				newRegion := "OREGON_USA"
+				resp.DataProcessRegion.Region = newRegion
+				m.EXPECT().UpdateStreamWorkspace(mock.Anything, mock.Anything, mock.Anything, mock.Anything).
+					Return(admin.UpdateStreamWorkspaceApiRequest{ApiService: m})
+				m.EXPECT().UpdateStreamWorkspaceExecute(mock.Anything).
 					Return(resp, &http.Response{StatusCode: 200}, nil)
 			},
 			expectedStatus: handler.Success,
+			validateResult: func(t *testing.T, event handler.ProgressEvent) {
+				t.Helper()
+				assert.Equal(t, "Update Completed", event.Message)
+				require.NotNil(t, event.ResourceModel)
+				model := event.ResourceModel.(*resource.Model)
+				assert.NotNil(t, model.Id)
+				assert.NotNil(t, model.DataProcessRegion)
+				assert.Equal(t, "OREGON_USA", *model.DataProcessRegion.Region)
+				assert.Equal(t, "AWS", *model.DataProcessRegion.CloudProvider)
+			},
 		},
 		"updateNotFound": {
 			mockSetup: func(m *mockadmin.StreamsApi) {
-				m.EXPECT().GetStreamWorkspace(mock.Anything, mock.Anything, mock.Anything).
-					Return(admin.GetStreamWorkspaceApiRequest{ApiService: m})
-				m.EXPECT().GetStreamWorkspaceExecute(mock.Anything).
+				m.EXPECT().UpdateStreamWorkspace(mock.Anything, mock.Anything, mock.Anything, mock.Anything).
+					Return(admin.UpdateStreamWorkspaceApiRequest{ApiService: m})
+				m.EXPECT().UpdateStreamWorkspaceExecute(mock.Anything).
 					Return(nil, &http.Response{StatusCode: 404}, fmt.Errorf("not found"))
+			},
+			expectedStatus: handler.Failed,
+			validateResult: func(t *testing.T, event handler.ProgressEvent) {
+				t.Helper()
+				assert.Equal(t, string(types.HandlerErrorCodeNotFound), event.HandlerErrorCode)
+				assert.Equal(t, "StreamWorkspace not found", event.Message)
+			},
+		},
+		"updateWithError": {
+			mockSetup: func(m *mockadmin.StreamsApi) {
+				m.EXPECT().UpdateStreamWorkspace(mock.Anything, mock.Anything, mock.Anything, mock.Anything).
+					Return(admin.UpdateStreamWorkspaceApiRequest{ApiService: m})
+				m.EXPECT().UpdateStreamWorkspaceExecute(mock.Anything).
+					Return(nil, &http.Response{StatusCode: 500}, fmt.Errorf("internal server error"))
 			},
 			expectedStatus: handler.Failed,
 		},
@@ -342,6 +370,9 @@ func TestUpdateWithMocks(t *testing.T) {
 			event, err := resource.Update(handler.Request{}, nil, createTestStreamWorkspaceModel())
 			require.NoError(t, err)
 			assert.Equal(t, tc.expectedStatus, event.OperationStatus)
+			if tc.validateResult != nil {
+				tc.validateResult(t, event)
+			}
 		})
 	}
 }

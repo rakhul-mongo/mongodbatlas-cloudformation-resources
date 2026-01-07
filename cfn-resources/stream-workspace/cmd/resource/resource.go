@@ -116,7 +116,8 @@ func Update(req handler.Request, prevModel *Model, currentModel *Model) (handler
 
 	ctx := context.Background()
 
-	streamWorkspace, resp, err := conn.StreamsApi.GetStreamWorkspace(ctx, *currentModel.ProjectId, *currentModel.WorkspaceName).Execute()
+	streamWorkspaceUpdateReq := NewStreamWorkspaceUpdateReq(currentModel)
+	updatedStreamWorkspace, resp, err := conn.StreamsApi.UpdateStreamWorkspace(ctx, *currentModel.ProjectId, *currentModel.WorkspaceName, streamWorkspaceUpdateReq).Execute()
 	if err != nil {
 		if resp != nil && resp.StatusCode == http.StatusNotFound {
 			return handler.ProgressEvent{
@@ -128,7 +129,7 @@ func Update(req handler.Request, prevModel *Model, currentModel *Model) (handler
 		return HandleError(resp, constants.UPDATE, err)
 	}
 
-	model := GetStreamWorkspaceModel(streamWorkspace, currentModel)
+	model := GetStreamWorkspaceModel(updatedStreamWorkspace, currentModel)
 	return handler.ProgressEvent{
 		OperationStatus: handler.Success,
 		Message:         "Update Completed",

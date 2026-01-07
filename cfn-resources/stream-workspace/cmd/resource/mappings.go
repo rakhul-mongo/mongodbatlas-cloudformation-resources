@@ -41,6 +41,21 @@ func NewStreamWorkspaceCreateReq(model *Model) *admin.StreamsTenant {
 	return streamTenant
 }
 
+func NewStreamWorkspaceUpdateReq(model *Model) *admin.StreamsDataProcessRegion {
+	if model == nil || model.DataProcessRegion == nil {
+		return nil
+	}
+	dataProcessRegion := *model.DataProcessRegion
+	if dataProcessRegion.Region == nil {
+		return nil
+	}
+	// CloudFormation is AWS-only, so CloudProvider is always AWS
+	return &admin.StreamsDataProcessRegion{
+		CloudProvider: "AWS",
+		Region:        *dataProcessRegion.Region,
+	}
+}
+
 func newModelDataRegion(dataProcessRegion *admin.StreamsDataProcessRegion) *StreamsDataProcessRegion {
 	return &StreamsDataProcessRegion{
 		CloudProvider: &dataProcessRegion.CloudProvider,

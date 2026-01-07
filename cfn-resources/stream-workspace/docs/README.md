@@ -1,6 +1,6 @@
 # MongoDB::Atlas::StreamWorkspace
 
-Returns, adds, and removes Atlas Stream Processing Workspaces. NOTE: This resource is effectively immutable - all configurable properties (WorkspaceName, ProjectId, Profile, StreamConfig, DataProcessRegion) are create-only. Update operations are not supported; to change configuration, delete and recreate the resource.
+Returns, adds, updates, and removes Atlas Stream Processing Workspaces. The DataProcessRegion.Region property can be updated after creation. Other properties (WorkspaceName, ProjectId, Profile, StreamConfig, DataProcessRegion.CloudProvider) are create-only and require resource replacement to change.
 
 ## Syntax
 

@@ -187,3 +187,67 @@ func TestNewModelConnections(t *testing.T) {
 		})
 	}
 }
+
+func TestNewStreamWorkspaceUpdateReq(t *testing.T) {
+	newRegion := "OREGON_USA"
+	testCases := []struct {
+		name     string
+		input    *resource.Model
+		expected *admin.StreamsDataProcessRegion
+	}{
+		{
+			name: "Model with DataProcessRegion and Region",
+			input: &resource.Model{
+				DataProcessRegion: &resource.StreamsDataProcessRegion{
+					CloudProvider: &cloudProvider,
+					Region:        &newRegion,
+				},
+			},
+			expected: &admin.StreamsDataProcessRegion{
+				CloudProvider: "AWS",
+				Region:        newRegion,
+			},
+		},
+		{
+			name: "Model with DataProcessRegion but no CloudProvider (should still work)",
+			input: &resource.Model{
+				DataProcessRegion: &resource.StreamsDataProcessRegion{
+					Region: &newRegion,
+				},
+			},
+			expected: &admin.StreamsDataProcessRegion{
+				CloudProvider: "AWS",
+				Region:        newRegion,
+			},
+		},
+		{
+			name:     "Model is nil",
+			input:    nil,
+			expected: nil,
+		},
+		{
+			name: "Model with nil DataProcessRegion",
+			input: &resource.Model{
+				DataProcessRegion: nil,
+			},
+			expected: nil,
+		},
+		{
+			name: "Model with DataProcessRegion but nil Region",
+			input: &resource.Model{
+				DataProcessRegion: &resource.StreamsDataProcessRegion{
+					CloudProvider: &cloudProvider,
+					Region:        nil,
+				},
+			},
+			expected: nil,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			result := resource.NewStreamWorkspaceUpdateReq(tc.input)
+			assert.Equal(t, tc.expected, result, "update request did not match expected output")
+		})
+	}
+}

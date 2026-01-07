@@ -3,10 +3,11 @@
   "ProjectId": "",
   "DataProcessRegion": {
     "CloudProvider": "AWS",
-    "Region": "VIRGINIA_USA"
+    "Region": "OREGON_USA"
   },
   "StreamConfig": {
     "Tier": "SP30",
     "MaxTierSize": "SP50"
-  }
+  },
+  "Profile": "default"
 }

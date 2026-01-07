@@ -8,5 +8,6 @@
   "StreamConfig": {
     "Tier": "SP30",
     "MaxTierSize": "SP50"
-  }
+  },
+  "Profile": "default"
 }
