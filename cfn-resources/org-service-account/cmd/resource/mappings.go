@@ -1,4 +1,4 @@
-// Copyright 2024 MongoDB Inc
+// Copyright 2025 MongoDB Inc
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -22,7 +22,6 @@ import (
 	"github.com/mongodb/mongodbatlas-cloudformation-resources/util"
 )
 
-// GetOrgServiceAccountModel maps API response to CFN Model
 func GetOrgServiceAccountModel(account *admin.OrgServiceAccount, currentModel *Model) *Model {
 	model := new(Model)
 
@@ -38,13 +37,9 @@ func GetOrgServiceAccountModel(account *admin.OrgServiceAccount, currentModel *M
 		model.Description = account.Description
 		if account.Roles != nil {
 			roles := *account.Roles
-			// If currentModel has roles, preserve that order (for update operations)
-			// Otherwise, sort to ensure consistent ordering
 			if currentModel != nil && currentModel.Roles != nil && len(currentModel.Roles) > 0 {
-				// Preserve input order for update operations
 				model.Roles = currentModel.Roles
 			} else {
-				// Sort roles to ensure consistent ordering (API may return in different order)
 				sort.Strings(roles)
 				model.Roles = roles
 			}
@@ -52,7 +47,6 @@ func GetOrgServiceAccountModel(account *admin.OrgServiceAccount, currentModel *M
 		model.ClientId = account.ClientId
 		model.CreatedAt = util.TimePtrToStringPtr(account.CreatedAt)
 
-		// Map secrets
 		if account.Secrets != nil {
 			model.Secrets = make([]Secret, len(*account.Secrets))
 			for i, s := range *account.Secrets {
@@ -64,7 +58,7 @@ func GetOrgServiceAccountModel(account *admin.OrgServiceAccount, currentModel *M
 					ExpiresAt:         util.TimePtrToStringPtr(&expiresAt),
 					LastUsedAt:        util.TimePtrToStringPtr(s.LastUsedAt),
 					MaskedSecretValue: s.MaskedSecretValue,
-					Secret:            s.Secret, // Only populated on create, masked in Read/Update/List handlers
+					Secret:            s.Secret,
 				}
 			}
 		}
@@ -72,18 +66,11 @@ func GetOrgServiceAccountModel(account *admin.OrgServiceAccount, currentModel *M
 	return model
 }
 
-// NewOrgServiceAccountCreateReq maps CFN Model to SDK Create Request
 func NewOrgServiceAccountCreateReq(model *Model) *admin.OrgServiceAccountRequest {
 	if model == nil {
 		return nil
 	}
-	// SecretExpiresAfterHours is required by API but optional in schema (matches Terraform behavior)
-	// Use a default value if not provided (API requires this field)
-	secretExpiresAfterHours := 720 // Default to 30 days (720 hours) if not specified
-	if model.SecretExpiresAfterHours != nil {
-		secretExpiresAfterHours = *model.SecretExpiresAfterHours
-	}
-	// Sort roles to ensure consistent ordering
+	secretExpiresAfterHours := *model.SecretExpiresAfterHours
 	roles := make([]string, len(model.Roles))
 	copy(roles, model.Roles)
 	sort.Strings(roles)
@@ -95,14 +82,12 @@ func NewOrgServiceAccountCreateReq(model *Model) *admin.OrgServiceAccountRequest
 	}
 }
 
-// NewOrgServiceAccountUpdateReq maps CFN Model to SDK Update Request
 func NewOrgServiceAccountUpdateReq(model *Model) *admin.OrgServiceAccountUpdateRequest {
 	if model == nil {
 		return nil
 	}
 	var roles *[]string
 	if len(model.Roles) > 0 {
-		// Sort roles to ensure consistent ordering
 		sortedRoles := make([]string, len(model.Roles))
 		copy(sortedRoles, model.Roles)
 		sort.Strings(sortedRoles)

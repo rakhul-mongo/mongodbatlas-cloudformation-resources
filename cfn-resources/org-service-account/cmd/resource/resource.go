@@ -1,4 +1,4 @@
-// Copyright 2024 MongoDB Inc
+// Copyright 2025 MongoDB Inc
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -21,57 +21,14 @@ import (
 )
 
 var (
-	createRequiredFields           = []string{"OrgId", "Name", "Description", "Roles"}
-	readUpdateDeleteRequiredFields = []string{"OrgId", "ClientId"}
-	listRequiredFields             = []string{"OrgId"}
+	CreateRequiredFields = []string{"OrgId", "Name", "Description", "Roles"}
+	ReadRequiredFields   = []string{"OrgId", "ClientId"}
+	UpdateRequiredFields = []string{"OrgId", "ClientId"}
+	DeleteRequiredFields = []string{"OrgId", "ClientId"}
+	ListRequiredFields   = []string{"OrgId"}
 )
 
-// Create handles the Create event from the Cloudformation service.
-func Create(req handler.Request, prevModel *Model, model *Model) (handler.ProgressEvent, error) {
-	client, setupErr := setupRequest(req, model, createRequiredFields)
-	if setupErr != nil {
-		return *setupErr, nil
-	}
-	return HandleCreate(&req, client, model), nil
-}
-
-// Read handles the Read event from the Cloudformation service.
-func Read(req handler.Request, prevModel *Model, model *Model) (handler.ProgressEvent, error) {
-	client, setupErr := setupRequest(req, model, readUpdateDeleteRequiredFields)
-	if setupErr != nil {
-		return *setupErr, nil
-	}
-	return HandleRead(&req, client, model), nil
-}
-
-// Update handles the Update event from the Cloudformation service.
-func Update(req handler.Request, prevModel *Model, model *Model) (handler.ProgressEvent, error) {
-	client, setupErr := setupRequest(req, model, readUpdateDeleteRequiredFields)
-	if setupErr != nil {
-		return *setupErr, nil
-	}
-	return HandleUpdate(&req, client, model), nil
-}
-
-// Delete handles the Delete event from the Cloudformation service.
-func Delete(req handler.Request, prevModel *Model, model *Model) (handler.ProgressEvent, error) {
-	client, setupErr := setupRequest(req, model, readUpdateDeleteRequiredFields)
-	if setupErr != nil {
-		return *setupErr, nil
-	}
-	return HandleDelete(&req, client, model), nil
-}
-
-// List handles the List event from the Cloudformation service.
-func List(req handler.Request, prevModel *Model, model *Model) (handler.ProgressEvent, error) {
-	client, setupErr := setupRequest(req, model, listRequiredFields)
-	if setupErr != nil {
-		return *setupErr, nil
-	}
-	return HandleList(&req, client, model), nil
-}
-
-func setupRequest(req handler.Request, model *Model, requiredFields []string) (*util.MongoDBClient, *handler.ProgressEvent) {
+var SetupRequest = func(req handler.Request, model *Model, requiredFields []string) (*util.MongoDBClient, *handler.ProgressEvent) {
 	util.SetupLogger("mongodb-atlas-org-service-account")
 	if modelValidation := validator.ValidateModel(requiredFields, model); modelValidation != nil {
 		return nil, modelValidation
@@ -82,4 +39,44 @@ func setupRequest(req handler.Request, model *Model, requiredFields []string) (*
 		return nil, peErr
 	}
 	return client, nil
+}
+
+func Create(req handler.Request, prevModel *Model, model *Model) (handler.ProgressEvent, error) {
+	client, setupErr := SetupRequest(req, model, CreateRequiredFields)
+	if setupErr != nil {
+		return *setupErr, nil
+	}
+	return HandleCreate(&req, client, model), nil
+}
+
+func Read(req handler.Request, prevModel *Model, model *Model) (handler.ProgressEvent, error) {
+	client, setupErr := SetupRequest(req, model, ReadRequiredFields)
+	if setupErr != nil {
+		return *setupErr, nil
+	}
+	return HandleRead(&req, client, model), nil
+}
+
+func Update(req handler.Request, prevModel *Model, model *Model) (handler.ProgressEvent, error) {
+	client, setupErr := SetupRequest(req, model, UpdateRequiredFields)
+	if setupErr != nil {
+		return *setupErr, nil
+	}
+	return HandleUpdate(&req, client, model), nil
+}
+
+func Delete(req handler.Request, prevModel *Model, model *Model) (handler.ProgressEvent, error) {
+	client, setupErr := SetupRequest(req, model, DeleteRequiredFields)
+	if setupErr != nil {
+		return *setupErr, nil
+	}
+	return HandleDelete(&req, client, model), nil
+}
+
+func List(req handler.Request, prevModel *Model, model *Model) (handler.ProgressEvent, error) {
+	client, setupErr := SetupRequest(req, model, ListRequiredFields)
+	if setupErr != nil {
+		return *setupErr, nil
+	}
+	return HandleList(&req, client, model), nil
 }
