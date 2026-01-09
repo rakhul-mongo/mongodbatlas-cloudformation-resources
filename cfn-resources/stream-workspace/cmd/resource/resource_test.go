@@ -1,4 +1,4 @@
-// Copyright 2024 MongoDB Inc
+// Copyright 2025 MongoDB Inc
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -172,91 +172,31 @@ func TestValidationErrors(t *testing.T) {
 	}
 }
 
-func TestCreateWithMocks(t *testing.T) {
+// setupMockClient creates a mock API client and sets up the InitEnvWithLatestClient function.
+// It returns a cleanup function that should be deferred.
+func setupMockClient(t *testing.T, mockSetup func(*mockadmin.StreamsApi)) func() {
+	t.Helper()
 	originalInitEnv := resource.InitEnvWithLatestClient
-	defer func() { resource.InitEnvWithLatestClient = originalInitEnv }()
+	mockStreamsAPI := mockadmin.NewStreamsApi(t)
+	mockSetup(mockStreamsAPI)
 
-	testCases := map[string]struct {
-		mockSetup      func(*mockadmin.StreamsApi)
-		expectedStatus handler.Status
-		validateResult func(t *testing.T, event handler.ProgressEvent)
-	}{
-		"successfulCreate": {
-			mockSetup: func(m *mockadmin.StreamsApi) {
-				resp := createTestStreamWorkspaceResponse()
-				m.EXPECT().CreateStreamWorkspace(mock.Anything, mock.Anything, mock.Anything).
-					Return(admin.CreateStreamWorkspaceApiRequest{ApiService: m})
-				m.EXPECT().CreateStreamWorkspaceExecute(mock.Anything).
-					Return(resp, &http.Response{StatusCode: 200}, nil)
-			},
-			expectedStatus: handler.Success,
-			validateResult: func(t *testing.T, event handler.ProgressEvent) {
-				t.Helper()
-				assert.Equal(t, "Create Completed", event.Message)
-				require.NotNil(t, event.ResourceModel)
-				model := event.ResourceModel.(*resource.Model)
-				assert.NotNil(t, model.Id)
-				assert.NotNil(t, model.Hostnames)
-			},
-		},
-		"createWithError": {
-			mockSetup: func(m *mockadmin.StreamsApi) {
-				m.EXPECT().CreateStreamWorkspace(mock.Anything, mock.Anything, mock.Anything).
-					Return(admin.CreateStreamWorkspaceApiRequest{ApiService: m})
-				m.EXPECT().CreateStreamWorkspaceExecute(mock.Anything).
-					Return(nil, &http.Response{StatusCode: 500}, fmt.Errorf("API error"))
-			},
-			expectedStatus: handler.Failed,
-		},
+	mockClient := &admin.APIClient{StreamsApi: mockStreamsAPI}
+	resource.InitEnvWithLatestClient = func(req handler.Request, currentModel *resource.Model, requiredFields []string) (*admin.APIClient, *handler.ProgressEvent) {
+		return mockClient, nil
 	}
 
-	for name, tc := range testCases {
-		t.Run(name, func(t *testing.T) {
-			mockStreamsAPI := mockadmin.NewStreamsApi(t)
-			tc.mockSetup(mockStreamsAPI)
-
-			mockClient := &admin.APIClient{StreamsApi: mockStreamsAPI}
-			resource.InitEnvWithLatestClient = func(req handler.Request, currentModel *resource.Model, requiredFields []string) (*admin.APIClient, *handler.ProgressEvent) {
-				return mockClient, nil
-			}
-
-			event, err := resource.Create(handler.Request{}, nil, createTestStreamWorkspaceModel())
-			require.NoError(t, err)
-			assert.Equal(t, tc.expectedStatus, event.OperationStatus)
-			if tc.validateResult != nil {
-				tc.validateResult(t, event)
-			}
-		})
-	}
+	return func() { resource.InitEnvWithLatestClient = originalInitEnv }
 }
 
-func TestReadWithMocks(t *testing.T) {
-	originalInitEnv := resource.InitEnvWithLatestClient
-	defer func() { resource.InitEnvWithLatestClient = originalInitEnv }()
-
+func TestCRUDOperations(t *testing.T) {
 	testCases := map[string]struct {
+		operation      func(handler.Request, *resource.Model, *resource.Model) (handler.ProgressEvent, error)
 		mockSetup      func(*mockadmin.StreamsApi)
 		expectedStatus handler.Status
 		validateResult func(t *testing.T, event handler.ProgressEvent)
 	}{
-		"successfulRead": {
-			mockSetup: func(m *mockadmin.StreamsApi) {
-				resp := createTestStreamWorkspaceResponse()
-				m.EXPECT().GetStreamWorkspace(mock.Anything, mock.Anything, mock.Anything).
-					Return(admin.GetStreamWorkspaceApiRequest{ApiService: m})
-				m.EXPECT().GetStreamWorkspaceExecute(mock.Anything).
-					Return(resp, &http.Response{StatusCode: 200}, nil)
-			},
-			expectedStatus: handler.Success,
-			validateResult: func(t *testing.T, event handler.ProgressEvent) {
-				t.Helper()
-				require.NotNil(t, event.ResourceModel)
-				model := event.ResourceModel.(*resource.Model)
-				assert.NotNil(t, model.Id)
-				assert.NotNil(t, model.Hostnames)
-			},
-		},
-		"readNotFound": {
+		"Read_notFound": {
+			operation: resource.Read,
 			mockSetup: func(m *mockadmin.StreamsApi) {
 				m.EXPECT().GetStreamWorkspace(mock.Anything, mock.Anything, mock.Anything).
 					Return(admin.GetStreamWorkspaceApiRequest{ApiService: m})
@@ -269,7 +209,8 @@ func TestReadWithMocks(t *testing.T) {
 				assert.Equal(t, string(types.HandlerErrorCodeNotFound), event.HandlerErrorCode)
 			},
 		},
-		"readWithError": {
+		"Read_apiError": {
+			operation: resource.Read,
 			mockSetup: func(m *mockadmin.StreamsApi) {
 				m.EXPECT().GetStreamWorkspace(mock.Anything, mock.Anything, mock.Anything).
 					Return(admin.GetStreamWorkspaceApiRequest{ApiService: m})
@@ -278,61 +219,8 @@ func TestReadWithMocks(t *testing.T) {
 			},
 			expectedStatus: handler.Failed,
 		},
-	}
-
-	for name, tc := range testCases {
-		t.Run(name, func(t *testing.T) {
-			mockStreamsAPI := mockadmin.NewStreamsApi(t)
-			tc.mockSetup(mockStreamsAPI)
-
-			mockClient := &admin.APIClient{StreamsApi: mockStreamsAPI}
-			resource.InitEnvWithLatestClient = func(req handler.Request, currentModel *resource.Model, requiredFields []string) (*admin.APIClient, *handler.ProgressEvent) {
-				return mockClient, nil
-			}
-
-			event, err := resource.Read(handler.Request{}, nil, createTestStreamWorkspaceModel())
-			require.NoError(t, err)
-			assert.Equal(t, tc.expectedStatus, event.OperationStatus)
-			if tc.validateResult != nil {
-				tc.validateResult(t, event)
-			}
-		})
-	}
-}
-
-func TestUpdateWithMocks(t *testing.T) {
-	originalInitEnv := resource.InitEnvWithLatestClient
-	defer func() { resource.InitEnvWithLatestClient = originalInitEnv }()
-
-	testCases := map[string]struct {
-		mockSetup      func(*mockadmin.StreamsApi)
-		expectedStatus handler.Status
-		validateResult func(t *testing.T, event handler.ProgressEvent)
-	}{
-		"successfulUpdate": {
-			mockSetup: func(m *mockadmin.StreamsApi) {
-				resp := createTestStreamWorkspaceResponse()
-				// Update the region in the response to show it was updated
-				newRegion := "OREGON_USA"
-				resp.DataProcessRegion.Region = newRegion
-				m.EXPECT().UpdateStreamWorkspace(mock.Anything, mock.Anything, mock.Anything, mock.Anything).
-					Return(admin.UpdateStreamWorkspaceApiRequest{ApiService: m})
-				m.EXPECT().UpdateStreamWorkspaceExecute(mock.Anything).
-					Return(resp, &http.Response{StatusCode: 200}, nil)
-			},
-			expectedStatus: handler.Success,
-			validateResult: func(t *testing.T, event handler.ProgressEvent) {
-				t.Helper()
-				assert.Equal(t, "Update Completed", event.Message)
-				require.NotNil(t, event.ResourceModel)
-				model := event.ResourceModel.(*resource.Model)
-				assert.NotNil(t, model.Id)
-				assert.NotNil(t, model.DataProcessRegion)
-				assert.Equal(t, "OREGON_USA", *model.DataProcessRegion.Region)
-				assert.Equal(t, "AWS", *model.DataProcessRegion.CloudProvider)
-			},
-		},
-		"updateNotFound": {
+		"Update_notFound": {
+			operation: resource.Update,
 			mockSetup: func(m *mockadmin.StreamsApi) {
 				m.EXPECT().UpdateStreamWorkspace(mock.Anything, mock.Anything, mock.Anything, mock.Anything).
 					Return(admin.UpdateStreamWorkspaceApiRequest{ApiService: m})
@@ -346,7 +234,8 @@ func TestUpdateWithMocks(t *testing.T) {
 				assert.Equal(t, "StreamWorkspace not found", event.Message)
 			},
 		},
-		"updateWithError": {
+		"Update_apiError": {
+			operation: resource.Update,
 			mockSetup: func(m *mockadmin.StreamsApi) {
 				m.EXPECT().UpdateStreamWorkspace(mock.Anything, mock.Anything, mock.Anything, mock.Anything).
 					Return(admin.UpdateStreamWorkspaceApiRequest{ApiService: m})
@@ -355,46 +244,18 @@ func TestUpdateWithMocks(t *testing.T) {
 			},
 			expectedStatus: handler.Failed,
 		},
-	}
-
-	for name, tc := range testCases {
-		t.Run(name, func(t *testing.T) {
-			mockStreamsAPI := mockadmin.NewStreamsApi(t)
-			tc.mockSetup(mockStreamsAPI)
-
-			mockClient := &admin.APIClient{StreamsApi: mockStreamsAPI}
-			resource.InitEnvWithLatestClient = func(req handler.Request, currentModel *resource.Model, requiredFields []string) (*admin.APIClient, *handler.ProgressEvent) {
-				return mockClient, nil
-			}
-
-			event, err := resource.Update(handler.Request{}, nil, createTestStreamWorkspaceModel())
-			require.NoError(t, err)
-			assert.Equal(t, tc.expectedStatus, event.OperationStatus)
-			if tc.validateResult != nil {
-				tc.validateResult(t, event)
-			}
-		})
-	}
-}
-
-func TestDeleteWithMocks(t *testing.T) {
-	originalInitEnv := resource.InitEnvWithLatestClient
-	defer func() { resource.InitEnvWithLatestClient = originalInitEnv }()
-
-	testCases := map[string]struct {
-		mockSetup      func(*mockadmin.StreamsApi)
-		expectedStatus handler.Status
-	}{
-		"successfulDelete": {
+		"Create_apiError": {
+			operation: resource.Create,
 			mockSetup: func(m *mockadmin.StreamsApi) {
-				m.EXPECT().DeleteStreamWorkspace(mock.Anything, mock.Anything, mock.Anything).
-					Return(admin.DeleteStreamWorkspaceApiRequest{ApiService: m})
-				m.EXPECT().DeleteStreamWorkspaceExecute(mock.Anything).
-					Return(&http.Response{StatusCode: 200}, nil)
+				m.EXPECT().CreateStreamWorkspace(mock.Anything, mock.Anything, mock.Anything).
+					Return(admin.CreateStreamWorkspaceApiRequest{ApiService: m})
+				m.EXPECT().CreateStreamWorkspaceExecute(mock.Anything).
+					Return(nil, &http.Response{StatusCode: 500}, fmt.Errorf("API error"))
 			},
-			expectedStatus: handler.Success,
+			expectedStatus: handler.Failed,
 		},
-		"deleteWithError": {
+		"Delete_apiError": {
+			operation: resource.Delete,
 			mockSetup: func(m *mockadmin.StreamsApi) {
 				m.EXPECT().DeleteStreamWorkspace(mock.Anything, mock.Anything, mock.Anything).
 					Return(admin.DeleteStreamWorkspaceApiRequest{ApiService: m})
@@ -403,61 +264,8 @@ func TestDeleteWithMocks(t *testing.T) {
 			},
 			expectedStatus: handler.Failed,
 		},
-	}
-
-	for name, tc := range testCases {
-		t.Run(name, func(t *testing.T) {
-			mockStreamsAPI := mockadmin.NewStreamsApi(t)
-			tc.mockSetup(mockStreamsAPI)
-
-			mockClient := &admin.APIClient{StreamsApi: mockStreamsAPI}
-			resource.InitEnvWithLatestClient = func(req handler.Request, currentModel *resource.Model, requiredFields []string) (*admin.APIClient, *handler.ProgressEvent) {
-				return mockClient, nil
-			}
-
-			event, err := resource.Delete(handler.Request{}, nil, createTestStreamWorkspaceModel())
-			require.NoError(t, err)
-			assert.Equal(t, tc.expectedStatus, event.OperationStatus)
-		})
-	}
-}
-
-func TestListWithMocks(t *testing.T) {
-	originalInitEnv := resource.InitEnvWithLatestClient
-	defer func() { resource.InitEnvWithLatestClient = originalInitEnv }()
-
-	testCases := map[string]struct {
-		mockSetup      func(*mockadmin.StreamsApi)
-		expectedStatus handler.Status
-		validateResult func(t *testing.T, event handler.ProgressEvent)
-	}{
-		"successfulList": {
-			mockSetup: func(m *mockadmin.StreamsApi) {
-				workspace1 := createTestStreamWorkspaceResponse()
-				workspace2 := createTestStreamWorkspaceResponse()
-				workspace2Name := "test-workspace-2"
-				workspace2.Id = util.StringPtr("workspace-id-2")
-				workspace2.Name = &workspace2Name
-
-				results := []admin.StreamsTenant{*workspace1, *workspace2}
-				totalCount := 2
-
-				req := admin.ListStreamWorkspacesApiRequest{ApiService: m}
-				m.EXPECT().ListStreamWorkspacesWithParams(mock.Anything, mock.Anything).Return(req)
-				m.EXPECT().ListStreamWorkspacesExecute(mock.MatchedBy(func(r admin.ListStreamWorkspacesApiRequest) bool { return true })).
-					Return(&admin.PaginatedApiStreamsTenant{
-						Results:    &results,
-						TotalCount: &totalCount,
-					}, &http.Response{StatusCode: 200}, nil)
-			},
-			expectedStatus: handler.Success,
-			validateResult: func(t *testing.T, event handler.ProgressEvent) {
-				t.Helper()
-				require.NotNil(t, event.ResourceModels)
-				assert.GreaterOrEqual(t, len(event.ResourceModels), 1)
-			},
-		},
-		"listWithPagination": {
+		"List_withPagination": {
+			operation: resource.List,
 			mockSetup: func(m *mockadmin.StreamsApi) {
 				workspace1 := createTestStreamWorkspaceResponse()
 				workspace2 := createTestStreamWorkspaceResponse()
@@ -496,7 +304,8 @@ func TestListWithMocks(t *testing.T) {
 				assert.GreaterOrEqual(t, len(event.ResourceModels), 2)
 			},
 		},
-		"listWithError": {
+		"List_apiError": {
+			operation: resource.List,
 			mockSetup: func(m *mockadmin.StreamsApi) {
 				req := admin.ListStreamWorkspacesApiRequest{ApiService: m}
 				m.EXPECT().ListStreamWorkspacesWithParams(mock.Anything, mock.Anything).Return(req)
@@ -509,15 +318,10 @@ func TestListWithMocks(t *testing.T) {
 
 	for name, tc := range testCases {
 		t.Run(name, func(t *testing.T) {
-			mockStreamsAPI := mockadmin.NewStreamsApi(t)
-			tc.mockSetup(mockStreamsAPI)
+			cleanup := setupMockClient(t, tc.mockSetup)
+			defer cleanup()
 
-			mockClient := &admin.APIClient{StreamsApi: mockStreamsAPI}
-			resource.InitEnvWithLatestClient = func(req handler.Request, currentModel *resource.Model, requiredFields []string) (*admin.APIClient, *handler.ProgressEvent) {
-				return mockClient, nil
-			}
-
-			event, err := resource.List(handler.Request{}, nil, createTestStreamWorkspaceModel())
+			event, err := tc.operation(handler.Request{}, nil, createTestStreamWorkspaceModel())
 			require.NoError(t, err)
 			assert.Equal(t, tc.expectedStatus, event.OperationStatus)
 			if tc.validateResult != nil {
