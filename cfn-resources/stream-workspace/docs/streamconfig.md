@@ -28,7 +28,7 @@ To declare this entity in your AWS CloudFormation template, use the following sy
 
 Selected tier for the Stream Workspace. Configures Memory / VCPU allowances.
 
-_Required_: No
+_Required_: Yes
 
 _Type_: String
 
@@ -47,4 +47,3 @@ _Type_: String
 _Allowed Values_: <code>SP2</code> | <code>SP5</code> | <code>SP10</code> | <code>SP30</code> | <code>SP50</code>
 
 _Update requires_: [No interruption](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/using-cfn-updating-stacks-update-behaviors.html#update-no-interrupt)
-

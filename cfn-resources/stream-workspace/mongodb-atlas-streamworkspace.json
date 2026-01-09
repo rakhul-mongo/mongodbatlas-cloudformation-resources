@@ -41,6 +41,7 @@
           "enum": ["SP2", "SP5", "SP10", "SP30", "SP50"]
         }
       },
+      "required": ["Tier"],
       "additionalProperties": false
     },
     "StreamsKafkaAuthentication": {
