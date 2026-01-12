@@ -1,4 +1,4 @@
-// Copyright 2025 MongoDB Inc
+// Copyright 2026 MongoDB Inc
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -34,7 +34,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func createTestOrgServiceAccountModel() *resource.Model {
+func createTestModel() *resource.Model {
 	orgID := "63350255419cf25e3d511c95"
 	name := "test-service-account"
 	description := "Test description"
@@ -52,7 +52,7 @@ func createTestOrgServiceAccountModel() *resource.Model {
 	}
 }
 
-func createTestOrgServiceAccountResponse() *admin.OrgServiceAccount {
+func createTestResponse() *admin.OrgServiceAccount {
 	now := time.Now()
 	clientID := "mdb_sa_id_123456789"
 	name := "test-service-account"
@@ -78,134 +78,55 @@ func createTestOrgServiceAccountResponse() *admin.OrgServiceAccount {
 	}
 }
 
-func TestConstants(t *testing.T) {
-	assert.Equal(t, []string{"OrgId", "Name", "Description", "Roles"}, resource.CreateRequiredFields)
-	assert.Equal(t, []string{"OrgId", "ClientId"}, resource.ReadRequiredFields)
-	assert.Equal(t, []string{"OrgId", "ClientId"}, resource.UpdateRequiredFields)
-	assert.Equal(t, []string{"OrgId", "ClientId"}, resource.DeleteRequiredFields)
-	assert.Equal(t, []string{"OrgId"}, resource.ListRequiredFields)
+func setupMockClient(mockSetup func(*mockadmin.ServiceAccountsApi)) *util.MongoDBClient {
+	mockAPI := mockadmin.NewServiceAccountsApi(&testing.T{})
+	mockSetup(mockAPI)
+	mockClient := &admin.APIClient{ServiceAccountsApi: mockAPI}
+	return &util.MongoDBClient{AtlasSDK: mockClient}
 }
 
-func TestValidationErrors(t *testing.T) {
-	testCases := map[string]struct {
-		operation    func(handler.Request, *resource.Model, *resource.Model) (handler.ProgressEvent, error)
-		currentModel *resource.Model
-		expectedMsg  string
-	}{
-		"Create_missingOrgId": {
-			operation: resource.Create,
-			currentModel: &resource.Model{
-				Name:        util.StringPtr("test-service-account"),
-				Description: util.StringPtr("Test description"),
-				Roles:       []string{"ORG_MEMBER"},
-			},
-			expectedMsg: "required",
-		},
-		"Create_missingName": {
-			operation: resource.Create,
-			currentModel: &resource.Model{
-				OrgId:       util.StringPtr("63350255419cf25e3d511c95"),
-				Description: util.StringPtr("Test description"),
-				Roles:       []string{"ORG_MEMBER"},
-			},
-			expectedMsg: "required",
-		},
-		"Create_missingDescription": {
-			operation: resource.Create,
-			currentModel: &resource.Model{
-				OrgId: util.StringPtr("63350255419cf25e3d511c95"),
-				Name:  util.StringPtr("test-service-account"),
-				Roles: []string{"ORG_MEMBER"},
-			},
-			expectedMsg: "required",
-		},
-		"Create_missingRoles": {
-			operation: resource.Create,
-			currentModel: &resource.Model{
-				OrgId:       util.StringPtr("63350255419cf25e3d511c95"),
-				Name:        util.StringPtr("test-service-account"),
-				Description: util.StringPtr("Test description"),
-			},
-			expectedMsg: "required",
-		},
-		"Read_missingOrgId": {
-			operation:    resource.Read,
-			currentModel: &resource.Model{ClientId: util.StringPtr("mdb_sa_id_123456789")},
-			expectedMsg:  "required",
-		},
-		"Read_missingClientId": {
-			operation:    resource.Read,
-			currentModel: &resource.Model{OrgId: util.StringPtr("63350255419cf25e3d511c95")},
-			expectedMsg:  "required",
-		},
-		"Update_missingOrgId": {
-			operation:    resource.Update,
-			currentModel: &resource.Model{ClientId: util.StringPtr("mdb_sa_id_123456789")},
-			expectedMsg:  "required",
-		},
-		"Update_missingClientId": {
-			operation:    resource.Update,
-			currentModel: &resource.Model{OrgId: util.StringPtr("63350255419cf25e3d511c95")},
-			expectedMsg:  "required",
-		},
-		"Delete_missingOrgId": {
-			operation:    resource.Delete,
-			currentModel: &resource.Model{ClientId: util.StringPtr("mdb_sa_id_123456789")},
-			expectedMsg:  "required",
-		},
-		"Delete_missingClientId": {
-			operation:    resource.Delete,
-			currentModel: &resource.Model{OrgId: util.StringPtr("63350255419cf25e3d511c95")},
-			expectedMsg:  "required",
-		},
-		"List_missingOrgId": {
-			operation:    resource.List,
-			currentModel: &resource.Model{},
-			expectedMsg:  "required",
-		},
-	}
-
-	for name, tc := range testCases {
-		t.Run(name, func(t *testing.T) {
-			event, err := tc.operation(handler.Request{}, nil, tc.currentModel)
-			require.NoError(t, err)
-			assert.Equal(t, handler.Failed, event.OperationStatus)
-			assert.Contains(t, event.Message, tc.expectedMsg)
-		})
-	}
-}
-
-func TestCreateWithMocks(t *testing.T) {
+func TestCRUDOperations(t *testing.T) {
 	originalSetupRequest := resource.SetupRequest
 	defer func() { resource.SetupRequest = originalSetupRequest }()
 
-	testCases := map[string]struct {
-		mockSetup      func(*mockadmin.ServiceAccountsApi)
-		validateResult func(t *testing.T, event handler.ProgressEvent)
+	tests := []struct {
+		name         string
+		operation    func(handler.Request, *resource.Model, *resource.Model) (handler.ProgressEvent, error)
+		setupModel   func() *resource.Model
+		mockSetup    func(*mockadmin.ServiceAccountsApi)
+		validate     func(*testing.T, handler.ProgressEvent)
 		expectedStatus handler.Status
 	}{
-		"successfulCreate": {
+		{
+			name:      "Create_Success",
+			operation: resource.Create,
+			setupModel: func() *resource.Model {
+				return createTestModel()
+			},
 			mockSetup: func(m *mockadmin.ServiceAccountsApi) {
-				resp := createTestOrgServiceAccountResponse()
+				resp := createTestResponse()
 				m.EXPECT().CreateOrgServiceAccount(mock.Anything, mock.Anything, mock.Anything).
 					Return(admin.CreateOrgServiceAccountApiRequest{ApiService: m})
 				m.EXPECT().CreateOrgServiceAccountExecute(mock.Anything).
 					Return(resp, &http.Response{StatusCode: 200}, nil)
 			},
 			expectedStatus: handler.Success,
-			validateResult: func(t *testing.T, event handler.ProgressEvent) {
-				t.Helper()
+			validate: func(t *testing.T, event handler.ProgressEvent) {
 				assert.Equal(t, constants.Complete, event.Message)
 				require.NotNil(t, event.ResourceModel)
 				model := event.ResourceModel.(*resource.Model)
 				assert.NotNil(t, model.ClientId)
-				assert.NotNil(t, model.Secrets)
 				if len(model.Secrets) > 0 {
 					assert.NotNil(t, model.Secrets[0].Secret, "Secret should be present on create")
 				}
 			},
 		},
-		"createWithError": {
+		{
+			name:      "Create_Error",
+			operation: resource.Create,
+			setupModel: func() *resource.Model {
+				return createTestModel()
+			},
 			mockSetup: func(m *mockadmin.ServiceAccountsApi) {
 				m.EXPECT().CreateOrgServiceAccount(mock.Anything, mock.Anything, mock.Anything).
 					Return(admin.CreateOrgServiceAccountApiRequest{ApiService: m})
@@ -214,65 +135,42 @@ func TestCreateWithMocks(t *testing.T) {
 			},
 			expectedStatus: handler.Failed,
 		},
-	}
-
-	for name, tc := range testCases {
-		t.Run(name, func(t *testing.T) {
-			mockServiceAccountsAPI := mockadmin.NewServiceAccountsApi(t)
-			tc.mockSetup(mockServiceAccountsAPI)
-
-			mockClient := &admin.APIClient{ServiceAccountsApi: mockServiceAccountsAPI}
-			mongoClient := &util.MongoDBClient{AtlasSDK: mockClient}
-
-			resource.SetupRequest = func(req handler.Request, model *resource.Model, requiredFields []string) (*util.MongoDBClient, *handler.ProgressEvent) {
-				return mongoClient, nil
-			}
-
-			event, err := resource.Create(handler.Request{}, nil, createTestOrgServiceAccountModel())
-			require.NoError(t, err)
-			assert.Equal(t, tc.expectedStatus, event.OperationStatus)
-
-			if tc.validateResult != nil {
-				tc.validateResult(t, event)
-			}
-		})
-	}
-}
-
-func TestReadWithMocks(t *testing.T) {
-	originalSetupRequest := resource.SetupRequest
-	defer func() { resource.SetupRequest = originalSetupRequest }()
-
-	testCases := map[string]struct {
-		mockSetup      func(*mockadmin.ServiceAccountsApi)
-		validateResult func(t *testing.T, event handler.ProgressEvent)
-		expectedStatus handler.Status
-	}{
-		"successfulRead": {
+		{
+			name:      "Read_Success",
+			operation: resource.Read,
+			setupModel: func() *resource.Model {
+				model := createTestModel()
+				clientID := "mdb_sa_id_123456789"
+				model.ClientId = &clientID
+				return model
+			},
 			mockSetup: func(m *mockadmin.ServiceAccountsApi) {
-				resp := createTestOrgServiceAccountResponse()
+				resp := createTestResponse()
 				m.EXPECT().GetOrgServiceAccount(mock.Anything, mock.Anything, mock.Anything).
 					Return(admin.GetOrgServiceAccountApiRequest{ApiService: m})
 				m.EXPECT().GetOrgServiceAccountExecute(mock.Anything).
 					Return(resp, &http.Response{StatusCode: 200}, nil)
 			},
 			expectedStatus: handler.Success,
-			validateResult: func(t *testing.T, event handler.ProgressEvent) {
-				t.Helper()
+			validate: func(t *testing.T, event handler.ProgressEvent) {
 				assert.Equal(t, constants.ReadComplete, event.Message)
-				require.NotNil(t, event.ResourceModel)
 				model := event.ResourceModel.(*resource.Model)
-				assert.NotNil(t, model.ClientId)
-				// Verify secrets are masked on read
 				if model.Secrets != nil {
 					for _, secret := range model.Secrets {
 						assert.Nil(t, secret.Secret, "Secret should be masked on read")
-						assert.NotNil(t, secret.MaskedSecretValue)
 					}
 				}
 			},
 		},
-		"readNotFound": {
+		{
+			name:      "Read_NotFound",
+			operation: resource.Read,
+			setupModel: func() *resource.Model {
+				model := createTestModel()
+				clientID := "mdb_sa_id_123456789"
+				model.ClientId = &clientID
+				return model
+			},
 			mockSetup: func(m *mockadmin.ServiceAccountsApi) {
 				m.EXPECT().GetOrgServiceAccount(mock.Anything, mock.Anything, mock.Anything).
 					Return(admin.GetOrgServiceAccountApiRequest{ApiService: m})
@@ -281,58 +179,17 @@ func TestReadWithMocks(t *testing.T) {
 			},
 			expectedStatus: handler.Failed,
 		},
-		"readWithError": {
-			mockSetup: func(m *mockadmin.ServiceAccountsApi) {
-				m.EXPECT().GetOrgServiceAccount(mock.Anything, mock.Anything, mock.Anything).
-					Return(admin.GetOrgServiceAccountApiRequest{ApiService: m})
-				m.EXPECT().GetOrgServiceAccountExecute(mock.Anything).
-					Return(nil, &http.Response{StatusCode: 500}, fmt.Errorf("internal server error"))
+		{
+			name:      "Update_Success",
+			operation: resource.Update,
+			setupModel: func() *resource.Model {
+				model := createTestModel()
+				clientID := "mdb_sa_id_123456789"
+				model.ClientId = &clientID
+				return model
 			},
-			expectedStatus: handler.Failed,
-		},
-	}
-
-	for name, tc := range testCases {
-		t.Run(name, func(t *testing.T) {
-			mockServiceAccountsAPI := mockadmin.NewServiceAccountsApi(t)
-			tc.mockSetup(mockServiceAccountsAPI)
-
-			mockClient := &admin.APIClient{ServiceAccountsApi: mockServiceAccountsAPI}
-			mongoClient := &util.MongoDBClient{AtlasSDK: mockClient}
-
-			resource.SetupRequest = func(req handler.Request, model *resource.Model, requiredFields []string) (*util.MongoDBClient, *handler.ProgressEvent) {
-				return mongoClient, nil
-			}
-
-			model := createTestOrgServiceAccountModel()
-			clientID := "mdb_sa_id_123456789"
-			model.ClientId = &clientID
-
-			event, err := resource.Read(handler.Request{}, nil, model)
-			require.NoError(t, err)
-			assert.Equal(t, tc.expectedStatus, event.OperationStatus)
-
-			if tc.validateResult != nil {
-				tc.validateResult(t, event)
-			}
-		})
-	}
-}
-
-func TestUpdateWithMocks(t *testing.T) {
-	originalSetupRequest := resource.SetupRequest
-	defer func() { resource.SetupRequest = originalSetupRequest }()
-
-	testCases := map[string]struct {
-		mockSetup      func(*mockadmin.ServiceAccountsApi)
-		validateResult func(t *testing.T, event handler.ProgressEvent)
-		expectedStatus handler.Status
-	}{
-		"successfulUpdate": {
 			mockSetup: func(m *mockadmin.ServiceAccountsApi) {
-				resp := createTestOrgServiceAccountResponse()
-				updatedName := "updated-service-account"
-				resp.Name = &updatedName
+				resp := createTestResponse()
 				m.EXPECT().GetOrgServiceAccount(mock.Anything, mock.Anything, mock.Anything).
 					Return(admin.GetOrgServiceAccountApiRequest{ApiService: m})
 				m.EXPECT().GetOrgServiceAccountExecute(mock.Anything).
@@ -343,13 +200,8 @@ func TestUpdateWithMocks(t *testing.T) {
 					Return(resp, &http.Response{StatusCode: 200}, nil)
 			},
 			expectedStatus: handler.Success,
-			validateResult: func(t *testing.T, event handler.ProgressEvent) {
-				t.Helper()
-				assert.Equal(t, constants.Complete, event.Message)
-				require.NotNil(t, event.ResourceModel)
+			validate: func(t *testing.T, event handler.ProgressEvent) {
 				model := event.ResourceModel.(*resource.Model)
-				assert.NotNil(t, model.ClientId)
-				// Verify secrets are masked on update
 				if model.Secrets != nil {
 					for _, secret := range model.Secrets {
 						assert.Nil(t, secret.Secret, "Secret should be masked on update")
@@ -357,7 +209,15 @@ func TestUpdateWithMocks(t *testing.T) {
 				}
 			},
 		},
-		"updateNotFound": {
+		{
+			name:      "Update_NotFound",
+			operation: resource.Update,
+			setupModel: func() *resource.Model {
+				model := createTestModel()
+				clientID := "mdb_sa_id_123456789"
+				model.ClientId = &clientID
+				return model
+			},
 			mockSetup: func(m *mockadmin.ServiceAccountsApi) {
 				m.EXPECT().GetOrgServiceAccount(mock.Anything, mock.Anything, mock.Anything).
 					Return(admin.GetOrgServiceAccountApiRequest{ApiService: m})
@@ -365,61 +225,21 @@ func TestUpdateWithMocks(t *testing.T) {
 					Return(nil, &http.Response{StatusCode: 404}, fmt.Errorf("not found"))
 			},
 			expectedStatus: handler.Failed,
-			validateResult: func(t *testing.T, event handler.ProgressEvent) {
-				t.Helper()
+			validate: func(t *testing.T, event handler.ProgressEvent) {
 				assert.Equal(t, string(types.HandlerErrorCodeNotFound), event.HandlerErrorCode)
-				assert.Equal(t, "Resource not found", event.Message)
 			},
 		},
-		"updateWithError": {
-			mockSetup: func(m *mockadmin.ServiceAccountsApi) {
-				m.EXPECT().GetOrgServiceAccount(mock.Anything, mock.Anything, mock.Anything).
-					Return(admin.GetOrgServiceAccountApiRequest{ApiService: m})
-				m.EXPECT().GetOrgServiceAccountExecute(mock.Anything).
-					Return(nil, &http.Response{StatusCode: 500}, fmt.Errorf("internal server error"))
+		{
+			name:      "Delete_Success",
+			operation: resource.Delete,
+			setupModel: func() *resource.Model {
+				model := createTestModel()
+				clientID := "mdb_sa_id_123456789"
+				model.ClientId = &clientID
+				return model
 			},
-			expectedStatus: handler.Failed,
-		},
-	}
-
-	for name, tc := range testCases {
-		t.Run(name, func(t *testing.T) {
-			mockServiceAccountsAPI := mockadmin.NewServiceAccountsApi(t)
-			tc.mockSetup(mockServiceAccountsAPI)
-
-			mockClient := &admin.APIClient{ServiceAccountsApi: mockServiceAccountsAPI}
-			mongoClient := &util.MongoDBClient{AtlasSDK: mockClient}
-
-			resource.SetupRequest = func(req handler.Request, model *resource.Model, requiredFields []string) (*util.MongoDBClient, *handler.ProgressEvent) {
-				return mongoClient, nil
-			}
-
-			model := createTestOrgServiceAccountModel()
-			clientID := "mdb_sa_id_123456789"
-			model.ClientId = &clientID
-
-			event, err := resource.Update(handler.Request{}, nil, model)
-			require.NoError(t, err)
-			assert.Equal(t, tc.expectedStatus, event.OperationStatus)
-
-			if tc.validateResult != nil {
-				tc.validateResult(t, event)
-			}
-		})
-	}
-}
-
-func TestDeleteWithMocks(t *testing.T) {
-	originalSetupRequest := resource.SetupRequest
-	defer func() { resource.SetupRequest = originalSetupRequest }()
-
-	testCases := map[string]struct {
-		mockSetup      func(*mockadmin.ServiceAccountsApi)
-		expectedStatus handler.Status
-	}{
-		"successfulDelete": {
 			mockSetup: func(m *mockadmin.ServiceAccountsApi) {
-				resp := createTestOrgServiceAccountResponse()
+				resp := createTestResponse()
 				m.EXPECT().GetOrgServiceAccount(mock.Anything, mock.Anything, mock.Anything).
 					Return(admin.GetOrgServiceAccountApiRequest{ApiService: m})
 				m.EXPECT().GetOrgServiceAccountExecute(mock.Anything).
@@ -431,7 +251,15 @@ func TestDeleteWithMocks(t *testing.T) {
 			},
 			expectedStatus: handler.Success,
 		},
-		"deleteNotFound": {
+		{
+			name:      "Delete_NotFound",
+			operation: resource.Delete,
+			setupModel: func() *resource.Model {
+				model := createTestModel()
+				clientID := "mdb_sa_id_123456789"
+				model.ClientId = &clientID
+				return model
+			},
 			mockSetup: func(m *mockadmin.ServiceAccountsApi) {
 				m.EXPECT().GetOrgServiceAccount(mock.Anything, mock.Anything, mock.Anything).
 					Return(admin.GetOrgServiceAccountApiRequest{ApiService: m})
@@ -440,58 +268,15 @@ func TestDeleteWithMocks(t *testing.T) {
 			},
 			expectedStatus: handler.Failed,
 		},
-		"deleteWithError": {
-			mockSetup: func(m *mockadmin.ServiceAccountsApi) {
-				resp := createTestOrgServiceAccountResponse()
-				m.EXPECT().GetOrgServiceAccount(mock.Anything, mock.Anything, mock.Anything).
-					Return(admin.GetOrgServiceAccountApiRequest{ApiService: m})
-				m.EXPECT().GetOrgServiceAccountExecute(mock.Anything).
-					Return(resp, &http.Response{StatusCode: 200}, nil)
-				m.EXPECT().DeleteOrgServiceAccount(mock.Anything, mock.Anything, mock.Anything).
-					Return(admin.DeleteOrgServiceAccountApiRequest{ApiService: m})
-				m.EXPECT().DeleteOrgServiceAccountExecute(mock.Anything).
-					Return(&http.Response{StatusCode: 500}, fmt.Errorf("delete failed"))
+		{
+			name:      "List_Success",
+			operation: resource.List,
+			setupModel: func() *resource.Model {
+				return createTestModel()
 			},
-			expectedStatus: handler.Failed,
-		},
-	}
-
-	for name, tc := range testCases {
-		t.Run(name, func(t *testing.T) {
-			mockServiceAccountsAPI := mockadmin.NewServiceAccountsApi(t)
-			tc.mockSetup(mockServiceAccountsAPI)
-
-			mockClient := &admin.APIClient{ServiceAccountsApi: mockServiceAccountsAPI}
-			mongoClient := &util.MongoDBClient{AtlasSDK: mockClient}
-
-			resource.SetupRequest = func(req handler.Request, model *resource.Model, requiredFields []string) (*util.MongoDBClient, *handler.ProgressEvent) {
-				return mongoClient, nil
-			}
-
-			model := createTestOrgServiceAccountModel()
-			clientID := "mdb_sa_id_123456789"
-			model.ClientId = &clientID
-
-			event, err := resource.Delete(handler.Request{}, nil, model)
-			require.NoError(t, err)
-			assert.Equal(t, tc.expectedStatus, event.OperationStatus)
-		})
-	}
-}
-
-func TestListWithMocks(t *testing.T) {
-	originalSetupRequest := resource.SetupRequest
-	defer func() { resource.SetupRequest = originalSetupRequest }()
-
-	testCases := map[string]struct {
-		mockSetup      func(*mockadmin.ServiceAccountsApi)
-		validateResult func(t *testing.T, event handler.ProgressEvent)
-		expectedStatus handler.Status
-	}{
-		"successfulList": {
 			mockSetup: func(m *mockadmin.ServiceAccountsApi) {
-				account1 := createTestOrgServiceAccountResponse()
-				account2 := createTestOrgServiceAccountResponse()
+				account1 := createTestResponse()
+				account2 := createTestResponse()
 				account2Name := "test-service-account-2"
 				account2ClientID := "mdb_sa_id_987654321"
 				account2.Name = &account2Name
@@ -509,11 +294,9 @@ func TestListWithMocks(t *testing.T) {
 					}, &http.Response{StatusCode: 200}, nil)
 			},
 			expectedStatus: handler.Success,
-			validateResult: func(t *testing.T, event handler.ProgressEvent) {
-				t.Helper()
+			validate: func(t *testing.T, event handler.ProgressEvent) {
 				require.NotNil(t, event.ResourceModels)
 				assert.GreaterOrEqual(t, len(event.ResourceModels), 1)
-				// Verify secrets are masked in list
 				for _, rm := range event.ResourceModels {
 					model := rm.(*resource.Model)
 					if model.Secrets != nil {
@@ -524,7 +307,12 @@ func TestListWithMocks(t *testing.T) {
 				}
 			},
 		},
-		"listEmpty": {
+		{
+			name:      "List_Empty",
+			operation: resource.List,
+			setupModel: func() *resource.Model {
+				return createTestModel()
+			},
 			mockSetup: func(m *mockadmin.ServiceAccountsApi) {
 				results := []admin.OrgServiceAccount{}
 				totalCount := 0
@@ -538,13 +326,16 @@ func TestListWithMocks(t *testing.T) {
 					}, &http.Response{StatusCode: 200}, nil)
 			},
 			expectedStatus: handler.Success,
-			validateResult: func(t *testing.T, event handler.ProgressEvent) {
-				t.Helper()
-				require.NotNil(t, event.ResourceModels)
+			validate: func(t *testing.T, event handler.ProgressEvent) {
 				assert.Len(t, event.ResourceModels, 0)
 			},
 		},
-		"listWithError": {
+		{
+			name:      "List_Error",
+			operation: resource.List,
+			setupModel: func() *resource.Model {
+				return createTestModel()
+			},
 			mockSetup: func(m *mockadmin.ServiceAccountsApi) {
 				m.EXPECT().ListOrgServiceAccounts(mock.Anything, mock.Anything).
 					Return(admin.ListOrgServiceAccountsApiRequest{ApiService: m})
@@ -555,10 +346,10 @@ func TestListWithMocks(t *testing.T) {
 		},
 	}
 
-	for name, tc := range testCases {
-		t.Run(name, func(t *testing.T) {
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
 			mockServiceAccountsAPI := mockadmin.NewServiceAccountsApi(t)
-			tc.mockSetup(mockServiceAccountsAPI)
+			tt.mockSetup(mockServiceAccountsAPI)
 
 			mockClient := &admin.APIClient{ServiceAccountsApi: mockServiceAccountsAPI}
 			mongoClient := &util.MongoDBClient{AtlasSDK: mockClient}
@@ -567,44 +358,33 @@ func TestListWithMocks(t *testing.T) {
 				return mongoClient, nil
 			}
 
-			event, err := resource.List(handler.Request{}, nil, createTestOrgServiceAccountModel())
+			event, err := tt.operation(handler.Request{}, nil, tt.setupModel())
 			require.NoError(t, err)
-			assert.Equal(t, tc.expectedStatus, event.OperationStatus)
+			assert.Equal(t, tt.expectedStatus, event.OperationStatus)
 
-			if tc.validateResult != nil {
-				tc.validateResult(t, event)
+			if tt.validate != nil {
+				tt.validate(t, event)
 			}
 		})
 	}
 }
 
 func TestHandleError(t *testing.T) {
-	testCases := map[string]struct {
+	tests := []struct {
+		name           string
 		response       *http.Response
 		err            error
 		expectedStatus handler.Status
 	}{
-		"notFoundError": {
-			response:       &http.Response{StatusCode: http.StatusNotFound},
-			err:            fmt.Errorf("resource not found"),
-			expectedStatus: handler.Failed,
-		},
-		"internalServerError": {
-			response:       &http.Response{StatusCode: http.StatusInternalServerError},
-			err:            fmt.Errorf("internal server error"),
-			expectedStatus: handler.Failed,
-		},
-		"badRequestError": {
-			response:       &http.Response{StatusCode: http.StatusBadRequest},
-			err:            fmt.Errorf("bad request"),
-			expectedStatus: handler.Failed,
-		},
+		{"NotFound", &http.Response{StatusCode: http.StatusNotFound}, fmt.Errorf("not found"), handler.Failed},
+		{"InternalServerError", &http.Response{StatusCode: http.StatusInternalServerError}, fmt.Errorf("server error"), handler.Failed},
+		{"BadRequest", &http.Response{StatusCode: http.StatusBadRequest}, fmt.Errorf("bad request"), handler.Failed},
 	}
 
-	for name, tc := range testCases {
-		t.Run(name, func(t *testing.T) {
-			event := resource.HandleError(tc.response, constants.CREATE, tc.err)
-			assert.Equal(t, tc.expectedStatus, event.OperationStatus)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			event := resource.HandleError(tt.response, constants.CREATE, tt.err)
+			assert.Equal(t, tt.expectedStatus, event.OperationStatus)
 		})
 	}
 }

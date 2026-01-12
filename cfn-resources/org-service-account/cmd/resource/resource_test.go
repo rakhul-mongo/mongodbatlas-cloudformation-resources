@@ -1,4 +1,4 @@
-// Copyright 2025 MongoDB Inc
+// Copyright 2026 MongoDB Inc
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -22,67 +22,32 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestCreate_MissingRequiredFields(t *testing.T) {
-	req := handler.Request{}
-	prevModel := &resource.Model{}
-	model := &resource.Model{
-		// Missing required fields: OrgId, Name, Description, Roles
-	}
-
-	event, err := resource.Create(req, prevModel, model)
-
-	assert.NoError(t, err)
-	assert.Equal(t, handler.Failed, event.OperationStatus)
+func TestConstants(t *testing.T) {
+	assert.Equal(t, []string{"OrgId", "Name", "Description", "Roles"}, resource.CreateRequiredFields)
+	assert.Equal(t, []string{"OrgId", "ClientId"}, resource.ReadRequiredFields)
+	assert.Equal(t, []string{"OrgId", "ClientId"}, resource.UpdateRequiredFields)
+	assert.Equal(t, []string{"OrgId", "ClientId"}, resource.DeleteRequiredFields)
+	assert.Equal(t, []string{"OrgId"}, resource.ListRequiredFields)
 }
 
-func TestRead_MissingRequiredFields(t *testing.T) {
-	req := handler.Request{}
-	prevModel := &resource.Model{}
-	model := &resource.Model{
-		// Missing required fields: OrgId, ClientId
+func TestValidationErrors(t *testing.T) {
+	tests := []struct {
+		name         string
+		operation    func(handler.Request, *resource.Model, *resource.Model) (handler.ProgressEvent, error)
+		currentModel *resource.Model
+	}{
+		{"Create_missingOrgId", resource.Create, &resource.Model{}},
+		{"Read_missingOrgId", resource.Read, &resource.Model{}},
+		{"Update_missingOrgId", resource.Update, &resource.Model{}},
+		{"Delete_missingOrgId", resource.Delete, &resource.Model{}},
+		{"List_missingOrgId", resource.List, &resource.Model{}},
 	}
 
-	event, err := resource.Read(req, prevModel, model)
-
-	assert.NoError(t, err)
-	assert.Equal(t, handler.Failed, event.OperationStatus)
-}
-
-func TestUpdate_MissingRequiredFields(t *testing.T) {
-	req := handler.Request{}
-	prevModel := &resource.Model{}
-	model := &resource.Model{
-		// Missing required fields: OrgId, ClientId
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			event, err := tt.operation(handler.Request{}, nil, tt.currentModel)
+			assert.NoError(t, err)
+			assert.Equal(t, handler.Failed, event.OperationStatus)
+		})
 	}
-
-	event, err := resource.Update(req, prevModel, model)
-
-	assert.NoError(t, err)
-	assert.Equal(t, handler.Failed, event.OperationStatus)
-}
-
-func TestDelete_MissingRequiredFields(t *testing.T) {
-	req := handler.Request{}
-	prevModel := &resource.Model{}
-	model := &resource.Model{
-		// Missing required fields: OrgId, ClientId
-	}
-
-	event, err := resource.Delete(req, prevModel, model)
-
-	assert.NoError(t, err)
-	assert.Equal(t, handler.Failed, event.OperationStatus)
-}
-
-func TestList_MissingRequiredFields(t *testing.T) {
-	req := handler.Request{}
-	prevModel := &resource.Model{}
-	model := &resource.Model{
-		// Missing required field: OrgId
-	}
-
-	event, err := resource.List(req, prevModel, model)
-
-	assert.NoError(t, err)
-	assert.Equal(t, handler.Failed, event.OperationStatus)
 }
