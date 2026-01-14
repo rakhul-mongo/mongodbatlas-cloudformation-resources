@@ -18,7 +18,7 @@ import (
 	"testing"
 	"time"
 
-	"go.mongodb.org/atlas-sdk/v20250312010/admin"
+	"go.mongodb.org/atlas-sdk/v20250312012/admin"
 
 	"github.com/aws/smithy-go/ptr"
 	"github.com/mongodb/mongodbatlas-cloudformation-resources/org-service-account/cmd/resource"
@@ -27,9 +27,9 @@ import (
 
 func TestNewOrgServiceAccountCreateReq(t *testing.T) {
 	tests := []struct {
-		name     string
 		input    *resource.Model
 		expected *admin.OrgServiceAccountRequest
+		name     string
 	}{
 		{
 			name:     "Nil Input",
@@ -70,9 +70,9 @@ func TestNewOrgServiceAccountCreateReq(t *testing.T) {
 
 func TestNewOrgServiceAccountUpdateReq(t *testing.T) {
 	tests := []struct {
-		name     string
 		input    *resource.Model
 		expected *admin.OrgServiceAccountUpdateRequest
+		name     string
 	}{
 		{
 			name:     "Nil Input",
@@ -132,16 +132,17 @@ func TestGetOrgServiceAccountModel(t *testing.T) {
 	secretID := "secret-123"
 
 	tests := []struct {
-		name       string
 		inputSDK   *admin.OrgServiceAccount
 		inputModel *resource.Model
 		validate   func(*testing.T, *resource.Model)
+		name       string
 	}{
 		{
 			name:       "Nil SDK Input",
 			inputSDK:   nil,
 			inputModel: nil,
 			validate: func(t *testing.T, result *resource.Model) {
+				t.Helper()
 				assert.NotNil(t, result)
 			},
 		},
@@ -159,6 +160,7 @@ func TestGetOrgServiceAccountModel(t *testing.T) {
 				Profile: ptr.String("default"),
 			},
 			validate: func(t *testing.T, result *resource.Model) {
+				t.Helper()
 				assert.Equal(t, orgID, *result.OrgId)
 				assert.Equal(t, "default", *result.Profile)
 				assert.Equal(t, clientID, *result.ClientId)
@@ -176,6 +178,7 @@ func TestGetOrgServiceAccountModel(t *testing.T) {
 				Roles: []string{"ORG_GROUP_CREATOR", "ORG_MEMBER"},
 			},
 			validate: func(t *testing.T, result *resource.Model) {
+				t.Helper()
 				assert.Equal(t, []string{"ORG_GROUP_CREATOR", "ORG_MEMBER"}, result.Roles)
 			},
 		},
@@ -197,6 +200,7 @@ func TestGetOrgServiceAccountModel(t *testing.T) {
 			},
 			inputModel: nil,
 			validate: func(t *testing.T, result *resource.Model) {
+				t.Helper()
 				assert.NotNil(t, result.Secrets)
 				assert.Len(t, result.Secrets, 1)
 				assert.Equal(t, secretID, *result.Secrets[0].Id)
@@ -213,6 +217,7 @@ func TestGetOrgServiceAccountModel(t *testing.T) {
 			},
 			inputModel: nil,
 			validate: func(t *testing.T, result *resource.Model) {
+				t.Helper()
 				assert.Nil(t, result.Secrets)
 			},
 		},
