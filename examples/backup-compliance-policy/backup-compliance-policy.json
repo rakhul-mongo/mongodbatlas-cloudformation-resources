@@ -1,0 +1,251 @@
+{
+  "AWSTemplateFormatVersion": "2010-09-09",
+  "Description": "This template creates a Backup Compliance Policy on the MongoDB Atlas API, this will be billed to your Atlas account.",
+  "Parameters": {
+    "Profile": {
+      "Type": "String",
+      "Description": "Secret Manager Profile that contains the Atlas Programmatic keys",
+      "Default": "default"
+    },
+    "ProjectId": {
+      "Type": "String",
+      "Description": "Unique 24-hexadecimal digit string that identifies your project"
+    },
+    "AuthorizedEmail": {
+      "Type": "String",
+      "Description": "Email address of the user authorized to update the Backup Compliance Policy settings"
+    },
+    "AuthorizedUserFirstName": {
+      "Type": "String",
+      "Description": "First name of the user authorized to update the Backup Compliance Policy settings"
+    },
+    "AuthorizedUserLastName": {
+      "Type": "String",
+      "Description": "Last name of the user authorized to update the Backup Compliance Policy settings"
+    },
+    "CopyProtectionEnabled": {
+      "Type": "String",
+      "Description": "Flag that indicates whether to enable additional copy protection for the cluster",
+      "Default": "false",
+      "AllowedValues": ["true", "false"]
+    },
+    "EncryptionAtRestEnabled": {
+      "Type": "String",
+      "Description": "Flag that indicates whether Encryption at Rest using Customer Key Management is required",
+      "Default": "false",
+      "AllowedValues": ["true", "false"]
+    },
+    "PitEnabled": {
+      "Type": "String",
+      "Description": "Flag that indicates whether the cluster uses Continuous Cloud Backup",
+      "Default": "false",
+      "AllowedValues": ["true", "false"]
+    },
+    "RestoreWindowDays": {
+      "Type": "String",
+      "Description": "Number of days back in time you can restore to with Continuous Cloud Backup accuracy",
+      "Default": "7"
+    },
+    "OnDemandFrequencyInterval": {
+      "Type": "String",
+      "Description": "Number that indicates the frequency interval for on-demand snapshots",
+      "Default": "0"
+    },
+    "OnDemandRetentionUnit": {
+      "Type": "String",
+      "Description": "Unit of time in which MongoDB Cloud measures snapshot retention for on-demand",
+      "Default": "days",
+      "AllowedValues": ["days", "weeks", "months", "years"]
+    },
+    "OnDemandRetentionValue": {
+      "Type": "String",
+      "Description": "Duration that MongoDB Cloud retains the on-demand snapshot",
+      "Default": "3"
+    },
+    "HourlyFrequencyInterval": {
+      "Type": "String",
+      "Description": "Desired frequency of hourly snapshots (in hours)",
+      "Default": "6"
+    },
+    "HourlyRetentionUnit": {
+      "Type": "String",
+      "Description": "Unit of time in which MongoDB Cloud measures snapshot retention for hourly",
+      "Default": "days",
+      "AllowedValues": ["days", "weeks", "months", "years"]
+    },
+    "HourlyRetentionValue": {
+      "Type": "String",
+      "Description": "Duration that MongoDB Cloud retains the hourly snapshot",
+      "Default": "7"
+    },
+    "DailyFrequencyInterval": {
+      "Type": "String",
+      "Description": "Desired frequency of daily snapshots (in days)",
+      "Default": "1"
+    },
+    "DailyRetentionUnit": {
+      "Type": "String",
+      "Description": "Unit of time in which MongoDB Cloud measures snapshot retention for daily",
+      "Default": "days",
+      "AllowedValues": ["days", "weeks", "months", "years"]
+    },
+    "DailyRetentionValue": {
+      "Type": "String",
+      "Description": "Duration that MongoDB Cloud retains the daily snapshot",
+      "Default": "7"
+    },
+    "WeeklyFrequencyInterval": {
+      "Type": "String",
+      "Description": "Desired frequency of weekly snapshots (in weeks)",
+      "Default": "1"
+    },
+    "WeeklyRetentionUnit": {
+      "Type": "String",
+      "Description": "Unit of time in which MongoDB Cloud measures snapshot retention for weekly",
+      "Default": "weeks",
+      "AllowedValues": ["days", "weeks", "months", "years"]
+    },
+    "WeeklyRetentionValue": {
+      "Type": "String",
+      "Description": "Duration that MongoDB Cloud retains the weekly snapshot",
+      "Default": "4"
+    },
+    "MonthlyFrequencyInterval": {
+      "Type": "String",
+      "Description": "Desired frequency of monthly snapshots (in months)",
+      "Default": "1"
+    },
+    "MonthlyRetentionUnit": {
+      "Type": "String",
+      "Description": "Unit of time in which MongoDB Cloud measures snapshot retention for monthly",
+      "Default": "months",
+      "AllowedValues": ["days", "weeks", "months", "years"]
+    },
+    "MonthlyRetentionValue": {
+      "Type": "String",
+      "Description": "Duration that MongoDB Cloud retains the monthly snapshot",
+      "Default": "12"
+    }
+  },
+  "Resources": {
+    "BackupCompliancePolicy": {
+      "Type": "MongoDB::Atlas::BackupCompliancePolicy",
+      "Properties": {
+        "ProjectId": {
+          "Ref": "ProjectId"
+        },
+        "AuthorizedEmail": {
+          "Ref": "AuthorizedEmail"
+        },
+        "AuthorizedUserFirstName": {
+          "Ref": "AuthorizedUserFirstName"
+        },
+        "AuthorizedUserLastName": {
+          "Ref": "AuthorizedUserLastName"
+        },
+        "CopyProtectionEnabled": {
+          "Ref": "CopyProtectionEnabled"
+        },
+        "EncryptionAtRestEnabled": {
+          "Ref": "EncryptionAtRestEnabled"
+        },
+        "PitEnabled": {
+          "Ref": "PitEnabled"
+        },
+        "RestoreWindowDays": {
+          "Ref": "RestoreWindowDays"
+        },
+        "OnDemandPolicyItem": {
+          "FrequencyInterval": {
+            "Ref": "OnDemandFrequencyInterval"
+          },
+          "RetentionUnit": {
+            "Ref": "OnDemandRetentionUnit"
+          },
+          "RetentionValue": {
+            "Ref": "OnDemandRetentionValue"
+          }
+        },
+        "PolicyItemHourly": {
+          "FrequencyInterval": {
+            "Ref": "HourlyFrequencyInterval"
+          },
+          "RetentionUnit": {
+            "Ref": "HourlyRetentionUnit"
+          },
+          "RetentionValue": {
+            "Ref": "HourlyRetentionValue"
+          }
+        },
+        "PolicyItemDaily": {
+          "FrequencyInterval": {
+            "Ref": "DailyFrequencyInterval"
+          },
+          "RetentionUnit": {
+            "Ref": "DailyRetentionUnit"
+          },
+          "RetentionValue": {
+            "Ref": "DailyRetentionValue"
+          }
+        },
+        "PolicyItemWeekly": [
+          {
+            "FrequencyInterval": {
+              "Ref": "WeeklyFrequencyInterval"
+            },
+            "RetentionUnit": {
+              "Ref": "WeeklyRetentionUnit"
+            },
+            "RetentionValue": {
+              "Ref": "WeeklyRetentionValue"
+            }
+          }
+        ],
+        "PolicyItemMonthly": [
+          {
+            "FrequencyInterval": {
+              "Ref": "MonthlyFrequencyInterval"
+            },
+            "RetentionUnit": {
+              "Ref": "MonthlyRetentionUnit"
+            },
+            "RetentionValue": {
+              "Ref": "MonthlyRetentionValue"
+            }
+          }
+        ]
+      }
+    }
+  },
+  "Outputs": {
+    "PolicyProjectId": {
+      "Description": "The unique identifier of the project for the Backup Compliance Policy",
+      "Export": {
+        "Name": {
+          "Fn::Sub": "${AWS::StackName}-ProjectId"
+        }
+      },
+      "Value": {
+        "Ref": "BackupCompliancePolicy"
+      }
+    },
+    "PolicyState": {
+      "Description": "Current state of the Backup Compliance Policy settings (ACTIVE or INACTIVE)",
+      "Value": {
+        "Fn::GetAtt": ["BackupCompliancePolicy", "State"]
+      }
+    },
+    "PolicyUpdatedDate": {
+      "Description": "ISO 8601 timestamp in UTC of when the Backup Compliance Policy settings were last updated",
+      "Value": {
+        "Fn::GetAtt": ["BackupCompliancePolicy", "UpdatedDate"]
+      }
+    },
+    "PolicyUpdatedUser": {
+      "Description": "Email address of the user who last updated the Backup Compliance Policy settings",
+      "Value": {
+        "Fn::GetAtt": ["BackupCompliancePolicy", "UpdatedUser"]
+      }
+    }
+  }
+}

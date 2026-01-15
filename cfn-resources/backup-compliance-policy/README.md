@@ -13,6 +13,6 @@ set up an [AWS Profile](/README.md#mongodb-atlas-api-keys-credential-management)
 
 See the [resource docs](docs/README.md).
 
-## CloudFormation Examples
+## Cloudformation Examples
 
 See the examples [CFN Template](/examples/backup-compliance-policy/README.md) for example resource.
