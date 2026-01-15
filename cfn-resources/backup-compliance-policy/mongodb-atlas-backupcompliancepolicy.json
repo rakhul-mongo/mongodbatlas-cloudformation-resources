@@ -14,7 +14,8 @@
         },
         "FrequencyInterval": {
           "description": "Number that indicates the frequency interval for a set of snapshots. Required when OnDemandPolicyItem is provided.",
-          "type": "integer"
+          "type": "string",
+          "pattern": "^[0-9]+$"
         },
         "FrequencyType": {
           "description": "Frequency associated with the backup policy item. For on-demand policies, the frequency type is 'ondemand'. This is a read-only value.",
@@ -27,7 +28,8 @@
         },
         "RetentionValue": {
           "description": "Duration in days, weeks, months, or years that MongoDB Cloud retains the snapshot. Required when OnDemandPolicyItem is provided.",
-          "type": "integer"
+          "type": "string",
+          "pattern": "^[0-9]+$"
         }
       },
       "additionalProperties": false
@@ -47,7 +49,8 @@
         },
         "FrequencyInterval": {
           "description": "Desired frequency of the new backup policy item specified by frequencyType. Required when the policy item is provided.",
-          "type": "integer"
+          "type": "string",
+          "pattern": "^[0-9]+$"
         },
         "RetentionUnit": {
           "description": "Unit of time in which MongoDB Cloud measures snapshot retention. Required when the policy item is provided.",
@@ -56,7 +59,8 @@
         },
         "RetentionValue": {
           "description": "Duration in days, weeks, months, or years that MongoDB Cloud retains the snapshot. Required when the policy item is provided. For less frequent policy items, MongoDB Cloud requires that you specify a value greater than or equal to the value specified for more frequent policy items.",
-          "type": "integer"
+          "type": "string",
+          "pattern": "^[0-9]+$"
         }
       },
       "additionalProperties": false
@@ -81,15 +85,18 @@
     },
     "CopyProtectionEnabled": {
       "description": "Flag that indicates whether to enable additional copy protection for the cluster. If enabled, cloud backup snapshots cannot be deleted until the retention period expires. Defaults to false if not specified.",
-      "type": "boolean"
+      "type": "string",
+      "pattern": "^(true|false)$"
     },
     "EncryptionAtRestEnabled": {
       "description": "Flag that indicates whether Encryption at Rest using Customer Key Management is required for all clusters with a Backup Compliance Policy. Defaults to false if not specified.",
-      "type": "boolean"
+      "type": "string",
+      "pattern": "^(true|false)$"
     },
     "RestoreWindowDays": {
       "description": "Number of days back in time you can restore to with Continuous Cloud Backup accuracy. Must be a positive, non-zero integer. This field is optional and computed from the API.",
-      "type": "integer"
+      "type": "string",
+      "pattern": "^[0-9]+$"
     },
     "OnDemandPolicyItem": {
       "description": "On-demand backup policy item configuration.",
@@ -98,7 +105,8 @@
     },
     "PitEnabled": {
       "description": "Flag that indicates whether the cluster uses Continuous Cloud Backup. If enabled, cloud backup snapshots are taken every 6 hours. Defaults to false if not specified.",
-      "type": "boolean"
+      "type": "string",
+      "pattern": "^(true|false)$"
     },
     "State": {
       "description": "Current state of the Backup Compliance Policy settings. Possible values are: ACTIVE, INACTIVE.",
@@ -190,5 +198,8 @@
     "list": {
       "permissions": ["mongodbatlas:CloudBackups:GetCompliancePolicy"]
     }
+  },
+  "tagging": {
+    "taggable": false
   }
 }

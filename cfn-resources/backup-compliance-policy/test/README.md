@@ -81,33 +81,12 @@ Update to inputs_1_create.json with:
 - PitEnabled set to true
 - RestoreWindowDays set to 7
 
-### inputs_2_create.json
-
-Comprehensive backup compliance policy with all policy items:
-
-- All required fields
-- All optional boolean fields set to true
-- RestoreWindowDays set to 14
-- OnDemandPolicyItem configured
-- PolicyItemHourly configured
-- PolicyItemDaily configured
-- Multiple PolicyItemWeekly items
-- PolicyItemMonthly items
-- PolicyItemYearly items
-
-### inputs_2_update.json
-
-Update to inputs_2_create.json with:
-
-- Boolean fields set to false
-- RestoreWindowDays increased to 30
-- Updated retention values for all policy items
-- PolicyItemYearly removed (empty array)
-
 ## Notes
 
 - The Backup Compliance Policy is a project-level resource (one per project)
 - The primary identifier is ProjectId
+- **No cluster is required to create/enable the policy** - it can be created without any clusters
+- The policy applies to M10+ clusters when they are created
 - Policy items (Id, FrequencyType) are read-only and returned by the API
 - When updating policy items, only FrequencyInterval, RetentionUnit, and RetentionValue can be modified
 - The policy must be enabled before it can be used
