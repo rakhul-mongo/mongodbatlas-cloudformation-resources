@@ -30,9 +30,7 @@ Resources:
             Statement:
               - Effect: Allow
                 Action:
-                - "mongodbatlas:CloudBackups:DisableCompliancePolicy"
-                - "mongodbatlas:CloudBackups:GetCompliancePolicy"
-                - "mongodbatlas:CloudBackups:UpdateCompliancePolicy"
+                - "secretsmanager:GetSecretValue"
                 Resource: "*"
 Outputs:
   ExecutionRoleArn:

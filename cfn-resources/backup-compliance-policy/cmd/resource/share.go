@@ -20,10 +20,9 @@ import (
 	"net/http"
 	"strings"
 
-	"go.mongodb.org/atlas-sdk/v20250312012/admin"
-
 	"github.com/aws-cloudformation/cloudformation-cli-go-plugin/cfn/handler"
 	"github.com/aws/aws-sdk-go-v2/service/cloudformation/types"
+	"go.mongodb.org/atlas-sdk/v20250312012/admin"
 
 	"github.com/mongodb/mongodbatlas-cloudformation-resources/util"
 	"github.com/mongodb/mongodbatlas-cloudformation-resources/util/constants"
@@ -32,7 +31,9 @@ import (
 )
 
 const (
-	policyStateActive = "ACTIVE"
+	policyStateActive                        = "ACTIVE"
+	errorCannotUpdateWithPendingAction       = "CANNOT_UPDATE_BACKUP_COMPLIANCE_POLICY_SETTINGS_WITH_PENDING_ACTION"
+	errorCannotDisableBackupCompliancePolicy = "CANNOT_DISABLE_BACKUP_COMPLIANCE_POLICY"
 )
 
 var callbackContext = map[string]any{"callbackBackupCompliancePolicy": true}
@@ -46,14 +47,13 @@ func isPendingActionError(err error) bool {
 	if err == nil {
 		return false
 	}
-	errorMessage := err.Error()
-	return strings.Contains(errorMessage, "CANNOT_UPDATE_BACKUP_COMPLIANCE_POLICY_SETTINGS_WITH_PENDING_ACTION")
+	return strings.Contains(err.Error(), errorCannotUpdateWithPendingAction)
 }
 
 func handlePendingAction(ctx context.Context, client *util.MongoDBClient, model *Model, projectID string) handler.ProgressEvent {
 	policy, _, getErr := client.AtlasSDK.CloudBackupsApi.GetCompliancePolicy(ctx, projectID).Execute()
 	if getErr == nil && policy != nil {
-		setBackupCompliancePolicyData(model, policy)
+		SetBackupCompliancePolicyData(model, policy)
 	}
 	return inProgressEvent(model, policy)
 }
@@ -90,22 +90,18 @@ func HandleCreate(req *handler.Request, client *util.MongoDBClient, model *Model
 
 	existingPolicy, apiResp, err := client.AtlasSDK.CloudBackupsApi.GetCompliancePolicy(ctx, projectID).Execute()
 	if err != nil {
-		if apiResp != nil && apiResp.StatusCode == http.StatusNotFound {
-		} else {
+		if apiResp == nil || apiResp.StatusCode != http.StatusNotFound {
 			return handleError(apiResp, constants.CREATE, err)
 		}
-	} else if existingPolicy != nil {
-		state := existingPolicy.GetState()
-		if state == policyStateActive {
-			return handler.ProgressEvent{
-				OperationStatus:  handler.Failed,
-				Message:          "Backup Compliance Policy already exists for project: " + projectID,
-				HandlerErrorCode: string(types.HandlerErrorCodeAlreadyExists),
-			}
+	} else if existingPolicy != nil && existingPolicy.GetState() == policyStateActive {
+		return handler.ProgressEvent{
+			OperationStatus:  handler.Failed,
+			Message:          "Backup Compliance Policy already exists for project: " + projectID,
+			HandlerErrorCode: string(types.HandlerErrorCodeAlreadyExists),
 		}
 	}
 
-	dataProtectionSettings := expandDataProtectionSettings(model, projectID)
+	dataProtectionSettings := ExpandDataProtectionSettings(model, projectID)
 
 	params := admin.UpdateCompliancePolicyApiParams{
 		GroupId:                        projectID,
@@ -138,7 +134,7 @@ func HandleRead(req *handler.Request, client *util.MongoDBClient, model *Model) 
 		return *pe
 	}
 
-	setBackupCompliancePolicyData(model, policy)
+	SetBackupCompliancePolicyData(model, policy)
 
 	return handler.ProgressEvent{
 		OperationStatus: handler.Success,
@@ -160,7 +156,7 @@ func HandleUpdate(req *handler.Request, client *util.MongoDBClient, model *Model
 		return *pe
 	}
 
-	dataProtectionSettings := expandDataProtectionSettings(model, projectID)
+	dataProtectionSettings := ExpandDataProtectionSettings(model, projectID)
 
 	params := admin.UpdateCompliancePolicyApiParams{
 		GroupId:                        projectID,
@@ -201,7 +197,7 @@ func HandleDelete(req *handler.Request, client *util.MongoDBClient, model *Model
 
 	errorMessage := err.Error()
 
-	if strings.Contains(errorMessage, "CANNOT_DISABLE_BACKUP_COMPLIANCE_POLICY") {
+	if strings.Contains(errorMessage, errorCannotDisableBackupCompliancePolicy) {
 		_, _ = logger.Warnf("Cannot disable backup compliance policy for project %s: Policy requires MongoDB support or removing all clusters & retained snapshots", projectID)
 		return handler.ProgressEvent{
 			OperationStatus:  handler.Failed,
@@ -231,14 +227,14 @@ func HandleList(req *handler.Request, client *util.MongoDBClient, model *Model) 
 
 	policy, apiResp, err := client.AtlasSDK.CloudBackupsApi.GetCompliancePolicy(ctx, projectID).Execute()
 	if err != nil {
-		if apiResp != nil && apiResp.StatusCode == http.StatusNotFound {
-			return handler.ProgressEvent{
-				OperationStatus: handler.Success,
-				Message:         constants.Complete,
-				ResourceModels:  []interface{}{},
-			}
+		if apiResp == nil || apiResp.StatusCode != http.StatusNotFound {
+			return handleError(apiResp, constants.LIST, err)
 		}
-		return handleError(apiResp, constants.LIST, err)
+		return handler.ProgressEvent{
+			OperationStatus: handler.Success,
+			Message:         constants.Complete,
+			ResourceModels:  []interface{}{},
+		}
 	}
 
 	if policy != nil && policy.GetProjectId() == "" {
@@ -250,7 +246,7 @@ func HandleList(req *handler.Request, client *util.MongoDBClient, model *Model) 
 	}
 
 	listModel := &Model{ProjectId: &projectID}
-	setBackupCompliancePolicyData(listModel, policy)
+	SetBackupCompliancePolicyData(listModel, policy)
 	model = listModel
 
 	return handler.ProgressEvent{
@@ -262,7 +258,7 @@ func HandleList(req *handler.Request, client *util.MongoDBClient, model *Model) 
 
 func inProgressEvent(model *Model, policy *admin.DataProtectionSettings20231001) handler.ProgressEvent {
 	if policy != nil {
-		setBackupCompliancePolicyData(model, policy)
+		SetBackupCompliancePolicyData(model, policy)
 	}
 	return handler.ProgressEvent{
 		OperationStatus:      handler.InProgress,
@@ -301,16 +297,14 @@ func validateProgress(client *util.MongoDBClient, model *Model, isDelete bool) h
 	}
 
 	if policy != nil {
-		state := policy.GetState()
-		if state == policyStateActive {
-			setBackupCompliancePolicyData(model, policy)
+		SetBackupCompliancePolicyData(model, policy)
+		if policy.GetState() == policyStateActive {
 			return handler.ProgressEvent{
 				OperationStatus: handler.Success,
 				Message:         constants.Complete,
 				ResourceModel:   model,
 			}
 		}
-		setBackupCompliancePolicyData(model, policy)
 		return inProgressEvent(model, policy)
 	}
 

@@ -12,9 +12,9 @@ To declare this entity in your AWS CloudFormation template, use the following sy
 {
     "<a href="#id" title="Id">Id</a>" : <i>String</i>,
     "<a href="#frequencytype" title="FrequencyType">FrequencyType</a>" : <i>String</i>,
-    "<a href="#frequencyinterval" title="FrequencyInterval">FrequencyInterval</a>" : <i>String</i>,
+    "<a href="#frequencyinterval" title="FrequencyInterval">FrequencyInterval</a>" : <i>Integer</i>,
     "<a href="#retentionunit" title="RetentionUnit">RetentionUnit</a>" : <i>String</i>,
-    "<a href="#retentionvalue" title="RetentionValue">RetentionValue</a>" : <i>String</i>
+    "<a href="#retentionvalue" title="RetentionValue">RetentionValue</a>" : <i>Integer</i>
 }
 </pre>
 
@@ -23,9 +23,9 @@ To declare this entity in your AWS CloudFormation template, use the following sy
 <pre>
 <a href="#id" title="Id">Id</a>: <i>String</i>
 <a href="#frequencytype" title="FrequencyType">FrequencyType</a>: <i>String</i>
-<a href="#frequencyinterval" title="FrequencyInterval">FrequencyInterval</a>: <i>String</i>
+<a href="#frequencyinterval" title="FrequencyInterval">FrequencyInterval</a>: <i>Integer</i>
 <a href="#retentionunit" title="RetentionUnit">RetentionUnit</a>: <i>String</i>
-<a href="#retentionvalue" title="RetentionValue">RetentionValue</a>: <i>String</i>
+<a href="#retentionvalue" title="RetentionValue">RetentionValue</a>: <i>Integer</i>
 </pre>
 
 ## Properties
@@ -58,9 +58,7 @@ Desired frequency of the new backup policy item specified by frequencyType. Requ
 
 _Required_: No
 
-_Type_: String
-
-_Pattern_: <code>^[0-9]+$</code>
+_Type_: Integer
 
 _Update requires_: [No interruption](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/using-cfn-updating-stacks-update-behaviors.html#update-no-interrupt)
 
@@ -82,9 +80,7 @@ Duration in days, weeks, months, or years that MongoDB Cloud retains the snapsho
 
 _Required_: No
 
-_Type_: String
-
-_Pattern_: <code>^[0-9]+$</code>
+_Type_: Integer
 
 _Update requires_: [No interruption](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/using-cfn-updating-stacks-update-behaviors.html#update-no-interrupt)
 

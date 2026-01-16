@@ -12,15 +12,16 @@ To declare this entity in your AWS CloudFormation template, use the following sy
 {
     "Type" : "MongoDB::Atlas::BackupCompliancePolicy",
     "Properties" : {
+        "<a href="#profile" title="Profile">Profile</a>" : <i>String</i>,
         "<a href="#projectid" title="ProjectId">ProjectId</a>" : <i>String</i>,
         "<a href="#authorizedemail" title="AuthorizedEmail">AuthorizedEmail</a>" : <i>String</i>,
         "<a href="#authorizeduserfirstname" title="AuthorizedUserFirstName">AuthorizedUserFirstName</a>" : <i>String</i>,
         "<a href="#authorizeduserlastname" title="AuthorizedUserLastName">AuthorizedUserLastName</a>" : <i>String</i>,
-        "<a href="#copyprotectionenabled" title="CopyProtectionEnabled">CopyProtectionEnabled</a>" : <i>String</i>,
-        "<a href="#encryptionatrestenabled" title="EncryptionAtRestEnabled">EncryptionAtRestEnabled</a>" : <i>String</i>,
-        "<a href="#restorewindowdays" title="RestoreWindowDays">RestoreWindowDays</a>" : <i>String</i>,
+        "<a href="#copyprotectionenabled" title="CopyProtectionEnabled">CopyProtectionEnabled</a>" : <i>Boolean</i>,
+        "<a href="#encryptionatrestenabled" title="EncryptionAtRestEnabled">EncryptionAtRestEnabled</a>" : <i>Boolean</i>,
+        "<a href="#restorewindowdays" title="RestoreWindowDays">RestoreWindowDays</a>" : <i>Integer</i>,
         "<a href="#ondemandpolicyitem" title="OnDemandPolicyItem">OnDemandPolicyItem</a>" : <i><a href="ondemandpolicyitem.md">OnDemandPolicyItem</a></i>,
-        "<a href="#pitenabled" title="PitEnabled">PitEnabled</a>" : <i>String</i>,
+        "<a href="#pitenabled" title="PitEnabled">PitEnabled</a>" : <i>Boolean</i>,
         "<a href="#policyitemhourly" title="PolicyItemHourly">PolicyItemHourly</a>" : <i><a href="scheduledpolicyitem.md">ScheduledPolicyItem</a></i>,
         "<a href="#policyitemdaily" title="PolicyItemDaily">PolicyItemDaily</a>" : <i><a href="scheduledpolicyitem.md">ScheduledPolicyItem</a></i>,
         "<a href="#policyitemweekly" title="PolicyItemWeekly">PolicyItemWeekly</a>" : <i>[ <a href="scheduledpolicyitem.md">ScheduledPolicyItem</a>, ... ]</i>,
@@ -35,15 +36,16 @@ To declare this entity in your AWS CloudFormation template, use the following sy
 <pre>
 Type: MongoDB::Atlas::BackupCompliancePolicy
 Properties:
+    <a href="#profile" title="Profile">Profile</a>: <i>String</i>
     <a href="#projectid" title="ProjectId">ProjectId</a>: <i>String</i>
     <a href="#authorizedemail" title="AuthorizedEmail">AuthorizedEmail</a>: <i>String</i>
     <a href="#authorizeduserfirstname" title="AuthorizedUserFirstName">AuthorizedUserFirstName</a>: <i>String</i>
     <a href="#authorizeduserlastname" title="AuthorizedUserLastName">AuthorizedUserLastName</a>: <i>String</i>
-    <a href="#copyprotectionenabled" title="CopyProtectionEnabled">CopyProtectionEnabled</a>: <i>String</i>
-    <a href="#encryptionatrestenabled" title="EncryptionAtRestEnabled">EncryptionAtRestEnabled</a>: <i>String</i>
-    <a href="#restorewindowdays" title="RestoreWindowDays">RestoreWindowDays</a>: <i>String</i>
+    <a href="#copyprotectionenabled" title="CopyProtectionEnabled">CopyProtectionEnabled</a>: <i>Boolean</i>
+    <a href="#encryptionatrestenabled" title="EncryptionAtRestEnabled">EncryptionAtRestEnabled</a>: <i>Boolean</i>
+    <a href="#restorewindowdays" title="RestoreWindowDays">RestoreWindowDays</a>: <i>Integer</i>
     <a href="#ondemandpolicyitem" title="OnDemandPolicyItem">OnDemandPolicyItem</a>: <i><a href="ondemandpolicyitem.md">OnDemandPolicyItem</a></i>
-    <a href="#pitenabled" title="PitEnabled">PitEnabled</a>: <i>String</i>
+    <a href="#pitenabled" title="PitEnabled">PitEnabled</a>: <i>Boolean</i>
     <a href="#policyitemhourly" title="PolicyItemHourly">PolicyItemHourly</a>: <i><a href="scheduledpolicyitem.md">ScheduledPolicyItem</a></i>
     <a href="#policyitemdaily" title="PolicyItemDaily">PolicyItemDaily</a>: <i><a href="scheduledpolicyitem.md">ScheduledPolicyItem</a></i>
     <a href="#policyitemweekly" title="PolicyItemWeekly">PolicyItemWeekly</a>: <i>
@@ -55,6 +57,16 @@ Properties:
 </pre>
 
 ## Properties
+
+#### Profile
+
+Profile used to provide credentials information, (a secret with the cfn/atlas/profile/{Profile}, is required), if not provided default is used
+
+_Required_: No
+
+_Type_: String
+
+_Update requires_: [No interruption](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/using-cfn-updating-stacks-update-behaviors.html#update-no-interrupt)
 
 #### ProjectId
 
@@ -102,9 +114,7 @@ Flag that indicates whether to enable additional copy protection for the cluster
 
 _Required_: No
 
-_Type_: String
-
-_Pattern_: <code>^(true|false)$</code>
+_Type_: Boolean
 
 _Update requires_: [No interruption](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/using-cfn-updating-stacks-update-behaviors.html#update-no-interrupt)
 
@@ -114,9 +124,7 @@ Flag that indicates whether Encryption at Rest using Customer Key Management is 
 
 _Required_: No
 
-_Type_: String
-
-_Pattern_: <code>^(true|false)$</code>
+_Type_: Boolean
 
 _Update requires_: [No interruption](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/using-cfn-updating-stacks-update-behaviors.html#update-no-interrupt)
 
@@ -126,9 +134,7 @@ Number of days back in time you can restore to with Continuous Cloud Backup accu
 
 _Required_: No
 
-_Type_: String
-
-_Pattern_: <code>^[0-9]+$</code>
+_Type_: Integer
 
 _Update requires_: [No interruption](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/using-cfn-updating-stacks-update-behaviors.html#update-no-interrupt)
 
@@ -148,9 +154,7 @@ Flag that indicates whether the cluster uses Continuous Cloud Backup. If enabled
 
 _Required_: No
 
-_Type_: String
-
-_Pattern_: <code>^(true|false)$</code>
+_Type_: Boolean
 
 _Update requires_: [No interruption](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/using-cfn-updating-stacks-update-behaviors.html#update-no-interrupt)
 

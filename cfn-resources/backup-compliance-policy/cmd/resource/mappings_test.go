@@ -12,39 +12,21 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package resource
+package resource_test
 
 import (
 	"testing"
 	"time"
 
+	"github.com/mongodb/mongodbatlas-cloudformation-resources/backup-compliance-policy/cmd/resource"
 	"github.com/mongodb/mongodbatlas-cloudformation-resources/util"
 	"github.com/stretchr/testify/assert"
 	"go.mongodb.org/atlas-sdk/v20250312012/admin"
 )
 
-func TestHelperFunctions(t *testing.T) {
-	t.Run("boolToStringPtr", func(t *testing.T) {
-		assert.Equal(t, "true", *boolToStringPtr(true))
-		assert.Equal(t, "false", *boolToStringPtr(false))
-	})
-
-	t.Run("stringPtrToBool", func(t *testing.T) {
-		assert.True(t, stringPtrToBool(util.StringPtr("true")))
-		assert.False(t, stringPtrToBool(util.StringPtr("false")))
-		assert.False(t, stringPtrToBool(nil))
-	})
-
-	t.Run("stringPtrToInt", func(t *testing.T) {
-		assert.Equal(t, 42, stringPtrToInt(util.StringPtr("42"), 0))
-		assert.Equal(t, 10, stringPtrToInt(nil, 10))
-		assert.Equal(t, 20, stringPtrToInt(util.StringPtr("invalid"), 20))
-	})
-}
-
 func TestPolicyItemConversions(t *testing.T) {
 	t.Run("getOnDemandPolicyItem", func(t *testing.T) {
-		assert.Nil(t, getOnDemandPolicyItem(nil))
+		assert.Nil(t, resource.GetOnDemandPolicyItem(nil))
 
 		item := &admin.BackupComplianceOnDemandPolicyItem{
 			Id:                util.StringPtr("id-1"),
@@ -53,28 +35,30 @@ func TestPolicyItemConversions(t *testing.T) {
 			RetentionUnit:     "days",
 			RetentionValue:    7,
 		}
-		result := getOnDemandPolicyItem(item)
+		result := resource.GetOnDemandPolicyItem(item)
 		assert.Equal(t, "id-1", *result.Id)
-		assert.Equal(t, "1", *result.FrequencyInterval)
-		assert.Equal(t, "7", *result.RetentionValue)
+		assert.Equal(t, 1, *result.FrequencyInterval)
+		assert.Equal(t, 7, *result.RetentionValue)
 	})
 
 	t.Run("expandOnDemandPolicyItem", func(t *testing.T) {
-		assert.Nil(t, expandOnDemandPolicyItem(nil))
+		assert.Nil(t, resource.ExpandOnDemandPolicyItem(nil))
 
-		model := &OnDemandPolicyItem{
-			FrequencyInterval: util.StringPtr("2"),
+		freqInterval := 2
+		retentionValue := 4
+		model := &resource.OnDemandPolicyItem{
+			FrequencyInterval: &freqInterval,
 			RetentionUnit:     util.StringPtr("weeks"),
-			RetentionValue:    util.StringPtr("4"),
+			RetentionValue:    &retentionValue,
 		}
-		result := expandOnDemandPolicyItem(model)
+		result := resource.ExpandOnDemandPolicyItem(model)
 		assert.Equal(t, "ondemand", result.FrequencyType)
 		assert.Equal(t, 2, result.FrequencyInterval)
 		assert.Equal(t, 4, result.RetentionValue)
 	})
 
 	t.Run("getScheduledPolicyItem", func(t *testing.T) {
-		assert.Nil(t, getScheduledPolicyItem(nil))
+		assert.Nil(t, resource.GetScheduledPolicyItem(nil))
 
 		item := &admin.BackupComplianceScheduledPolicyItem{
 			FrequencyType:     "hourly",
@@ -82,18 +66,20 @@ func TestPolicyItemConversions(t *testing.T) {
 			RetentionUnit:     "days",
 			RetentionValue:    3,
 		}
-		result := getScheduledPolicyItem(item)
+		result := resource.GetScheduledPolicyItem(item)
 		assert.Equal(t, "hourly", *result.FrequencyType)
-		assert.Equal(t, "6", *result.FrequencyInterval)
+		assert.Equal(t, 6, *result.FrequencyInterval)
 	})
 
 	t.Run("expandScheduledPolicyItem", func(t *testing.T) {
-		model := &ScheduledPolicyItem{
-			FrequencyInterval: util.StringPtr("1"),
+		freqInterval := 1
+		retentionValue := 4
+		model := &resource.ScheduledPolicyItem{
+			FrequencyInterval: &freqInterval,
 			RetentionUnit:     util.StringPtr("weeks"),
-			RetentionValue:    util.StringPtr("4"),
+			RetentionValue:    &retentionValue,
 		}
-		result := expandScheduledPolicyItem(model, "daily")
+		result := resource.ExpandScheduledPolicyItem(model, "daily")
 		assert.Equal(t, "daily", result.FrequencyType)
 		assert.Equal(t, 1, result.FrequencyInterval)
 	})
@@ -102,11 +88,14 @@ func TestPolicyItemConversions(t *testing.T) {
 func TestSetBackupCompliancePolicyData(t *testing.T) {
 	tests := map[string]struct {
 		policy *admin.DataProtectionSettings20231001
-		check  func(*testing.T, *Model)
+		check  func(*testing.T, *resource.Model)
 	}{
 		"nil policy": {
 			policy: nil,
-			check:  func(t *testing.T, m *Model) { assert.Nil(t, m.ProjectId) },
+			check: func(t *testing.T, m *resource.Model) {
+				t.Helper()
+				assert.Nil(t, m.ProjectId)
+			},
 		},
 		"basic fields": {
 			policy: &admin.DataProtectionSettings20231001{
@@ -116,11 +105,12 @@ func TestSetBackupCompliancePolicyData(t *testing.T) {
 				RestoreWindowDays:     util.IntPtr(7),
 				State:                 util.StringPtr("ACTIVE"),
 			},
-			check: func(t *testing.T, m *Model) {
+			check: func(t *testing.T, m *resource.Model) {
+				t.Helper()
 				assert.Equal(t, "proj-123", *m.ProjectId)
 				assert.Equal(t, "admin@example.com", *m.AuthorizedEmail)
-				assert.Equal(t, "true", *m.CopyProtectionEnabled)
-				assert.Equal(t, "7", *m.RestoreWindowDays)
+				assert.True(t, *m.CopyProtectionEnabled)
+				assert.Equal(t, 7, *m.RestoreWindowDays)
 				assert.Equal(t, "ACTIVE", *m.State)
 			},
 		},
@@ -135,7 +125,8 @@ func TestSetBackupCompliancePolicyData(t *testing.T) {
 				},
 				State: util.StringPtr("ACTIVE"),
 			},
-			check: func(t *testing.T, m *Model) {
+			check: func(t *testing.T, m *resource.Model) {
+				t.Helper()
 				assert.NotNil(t, m.PolicyItemHourly)
 				assert.NotNil(t, m.PolicyItemDaily)
 				assert.Len(t, m.PolicyItemWeekly, 1)
@@ -146,8 +137,8 @@ func TestSetBackupCompliancePolicyData(t *testing.T) {
 
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
-			model := &Model{}
-			setBackupCompliancePolicyData(model, tc.policy)
+			model := &resource.Model{}
+			resource.SetBackupCompliancePolicyData(model, tc.policy)
 			tc.check(t, model)
 		})
 	}
@@ -155,42 +146,45 @@ func TestSetBackupCompliancePolicyData(t *testing.T) {
 
 func TestExpandDataProtectionSettings(t *testing.T) {
 	tests := map[string]struct {
-		model *Model
+		model *resource.Model
 		check func(*testing.T, *admin.DataProtectionSettings20231001)
 	}{
 		"with empty policy items": {
-			model: &Model{
+			model: &resource.Model{
 				AuthorizedEmail:    util.StringPtr("admin@example.com"),
-				OnDemandPolicyItem: &OnDemandPolicyItem{},
-				PolicyItemHourly:   &ScheduledPolicyItem{},
-				PolicyItemDaily:    &ScheduledPolicyItem{},
+				OnDemandPolicyItem: &resource.OnDemandPolicyItem{},
+				PolicyItemHourly:   &resource.ScheduledPolicyItem{},
+				PolicyItemDaily:    &resource.ScheduledPolicyItem{},
 			},
 			check: func(t *testing.T, s *admin.DataProtectionSettings20231001) {
+				t.Helper()
 				assert.Nil(t, s.OnDemandPolicyItem, "empty OnDemandPolicyItem should be omitted")
 				assert.Nil(t, s.ScheduledPolicyItems, "empty policy items should not create scheduled items")
 			},
 		},
 		"minimal model": {
-			model: &Model{
+			model: &resource.Model{
 				AuthorizedEmail:         util.StringPtr("admin@example.com"),
 				AuthorizedUserFirstName: util.StringPtr("Jane"),
 				AuthorizedUserLastName:  util.StringPtr("Smith"),
 			},
 			check: func(t *testing.T, s *admin.DataProtectionSettings20231001) {
+				t.Helper()
 				assert.Equal(t, "admin@example.com", s.AuthorizedEmail)
 				assert.Equal(t, "Jane", s.AuthorizedUserFirstName)
 				assert.False(t, *s.CopyProtectionEnabled)
 			},
 		},
 		"with booleans and integers": {
-			model: &Model{
+			model: &resource.Model{
 				AuthorizedEmail:         util.StringPtr("test@example.com"),
-				CopyProtectionEnabled:   util.StringPtr("true"),
-				EncryptionAtRestEnabled: util.StringPtr("true"),
-				PitEnabled:              util.StringPtr("false"),
-				RestoreWindowDays:       util.StringPtr("14"),
+				CopyProtectionEnabled:   util.Pointer(true),
+				EncryptionAtRestEnabled: util.Pointer(true),
+				PitEnabled:              util.Pointer(false),
+				RestoreWindowDays:       util.IntPtr(14),
 			},
 			check: func(t *testing.T, s *admin.DataProtectionSettings20231001) {
+				t.Helper()
 				assert.True(t, *s.CopyProtectionEnabled)
 				assert.True(t, *s.EncryptionAtRestEnabled)
 				assert.False(t, *s.PitEnabled)
@@ -198,27 +192,28 @@ func TestExpandDataProtectionSettings(t *testing.T) {
 			},
 		},
 		"with all policy items": {
-			model: &Model{
+			model: &resource.Model{
 				AuthorizedEmail: util.StringPtr("admin@example.com"),
-				PolicyItemHourly: &ScheduledPolicyItem{
-					FrequencyInterval: util.StringPtr("6"),
+				PolicyItemHourly: &resource.ScheduledPolicyItem{
+					FrequencyInterval: util.IntPtr(6),
 					RetentionUnit:     util.StringPtr("days"),
-					RetentionValue:    util.StringPtr("3"),
+					RetentionValue:    util.IntPtr(3),
 				},
-				PolicyItemDaily: &ScheduledPolicyItem{
-					FrequencyInterval: util.StringPtr("1"),
+				PolicyItemDaily: &resource.ScheduledPolicyItem{
+					FrequencyInterval: util.IntPtr(1),
 					RetentionUnit:     util.StringPtr("weeks"),
-					RetentionValue:    util.StringPtr("1"),
+					RetentionValue:    util.IntPtr(1),
 				},
-				PolicyItemWeekly: []ScheduledPolicyItem{
+				PolicyItemWeekly: []resource.ScheduledPolicyItem{
 					{
-						FrequencyInterval: util.StringPtr("1"),
+						FrequencyInterval: util.IntPtr(1),
 						RetentionUnit:     util.StringPtr("months"),
-						RetentionValue:    util.StringPtr("2"),
+						RetentionValue:    util.IntPtr(2),
 					},
 				},
 			},
 			check: func(t *testing.T, s *admin.DataProtectionSettings20231001) {
+				t.Helper()
 				assert.NotNil(t, s.ScheduledPolicyItems)
 				items := *s.ScheduledPolicyItems
 				assert.Len(t, items, 3)
@@ -231,7 +226,7 @@ func TestExpandDataProtectionSettings(t *testing.T) {
 
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
-			result := expandDataProtectionSettings(tc.model, "test-project")
+			result := resource.ExpandDataProtectionSettings(tc.model, "test-project")
 			assert.Equal(t, "test-project", *result.ProjectId)
 			tc.check(t, result)
 		})
@@ -253,10 +248,10 @@ func TestRoundTripConversion(t *testing.T) {
 			UpdatedUser:             util.StringPtr("admin"),
 		}
 
-		model := &Model{}
-		setBackupCompliancePolicyData(model, original)
+		model := &resource.Model{}
+		resource.SetBackupCompliancePolicyData(model, original)
 
-		result := expandDataProtectionSettings(model, "proj-999")
+		result := resource.ExpandDataProtectionSettings(model, "proj-999")
 
 		assert.Equal(t, *original.ProjectId, *result.ProjectId)
 		assert.Equal(t, original.AuthorizedEmail, result.AuthorizedEmail)

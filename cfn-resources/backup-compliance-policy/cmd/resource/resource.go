@@ -15,11 +15,11 @@
 package resource
 
 import (
+	"github.com/aws-cloudformation/cloudformation-cli-go-plugin/cfn/handler"
+
 	"github.com/mongodb/mongodbatlas-cloudformation-resources/util"
 	"github.com/mongodb/mongodbatlas-cloudformation-resources/util/constants"
 	"github.com/mongodb/mongodbatlas-cloudformation-resources/util/validator"
-
-	"github.com/aws-cloudformation/cloudformation-cli-go-plugin/cfn/handler"
 )
 
 const callBackSeconds = 10
@@ -30,7 +30,6 @@ var (
 	listRequiredFields             = []string{constants.ProjectID}
 )
 
-// Create handles the Create event from the Cloudformation service.
 func Create(req handler.Request, prevModel *Model, model *Model) (handler.ProgressEvent, error) {
 	client, setupErr := setupRequest(req, model, createRequiredFields)
 	if setupErr != nil {
@@ -39,7 +38,6 @@ func Create(req handler.Request, prevModel *Model, model *Model) (handler.Progre
 	return HandleCreate(&req, client, model), nil
 }
 
-// Read handles the Read event from the Cloudformation service.
 func Read(req handler.Request, prevModel *Model, model *Model) (handler.ProgressEvent, error) {
 	client, setupErr := setupRequest(req, model, readUpdateDeleteRequiredFields)
 	if setupErr != nil {
@@ -48,7 +46,6 @@ func Read(req handler.Request, prevModel *Model, model *Model) (handler.Progress
 	return HandleRead(&req, client, model), nil
 }
 
-// Update handles the Update event from the Cloudformation service.
 func Update(req handler.Request, prevModel *Model, model *Model) (handler.ProgressEvent, error) {
 	client, setupErr := setupRequest(req, model, readUpdateDeleteRequiredFields)
 	if setupErr != nil {
@@ -57,7 +54,6 @@ func Update(req handler.Request, prevModel *Model, model *Model) (handler.Progre
 	return HandleUpdate(&req, client, model), nil
 }
 
-// Delete handles the Delete event from the Cloudformation service.
 func Delete(req handler.Request, prevModel *Model, model *Model) (handler.ProgressEvent, error) {
 	client, setupErr := setupRequest(req, model, readUpdateDeleteRequiredFields)
 	if setupErr != nil {
@@ -66,7 +62,6 @@ func Delete(req handler.Request, prevModel *Model, model *Model) (handler.Progre
 	return HandleDelete(&req, client, model), nil
 }
 
-// List handles the List event from the Cloudformation service.
 func List(req handler.Request, prevModel *Model, model *Model) (handler.ProgressEvent, error) {
 	client, setupErr := setupRequest(req, model, listRequiredFields)
 	if setupErr != nil {
@@ -80,9 +75,8 @@ func setupRequest(req handler.Request, model *Model, requiredFields []string) (*
 	if modelValidation := validator.ValidateModel(requiredFields, model); modelValidation != nil {
 		return nil, modelValidation
 	}
-	var profile *string
-	util.SetDefaultProfileIfNotDefined(&profile)
-	client, progressEventErr := util.NewAtlasClient(&req, profile)
+	util.SetDefaultProfileIfNotDefined(&model.Profile)
+	client, progressEventErr := util.NewAtlasClient(&req, model.Profile)
 	if progressEventErr != nil {
 		return nil, progressEventErr
 	}

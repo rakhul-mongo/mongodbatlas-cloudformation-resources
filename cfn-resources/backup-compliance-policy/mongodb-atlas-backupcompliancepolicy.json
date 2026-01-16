@@ -1,7 +1,6 @@
 {
   "typeName": "MongoDB::Atlas::BackupCompliancePolicy",
   "description": "Resource for managing MongoDB Atlas Backup Compliance Policy. Backup Compliance Policy prevents any user, regardless of role, from modifying or deleting specific cluster settings, backups, and backup configurations. When enabled, the Backup Compliance Policy will be applied as the minimum policy for all clusters and backups in the project.",
-  "sourceUrl": "https://github.com/mongodb/mongodbatlas-cloudformation-resources/tree/master/cfn-resources/backup-compliance-policy",
   "definitions": {
     "OnDemandPolicyItem": {
       "type": "object",
@@ -14,8 +13,7 @@
         },
         "FrequencyInterval": {
           "description": "Number that indicates the frequency interval for a set of snapshots. Required when OnDemandPolicyItem is provided.",
-          "type": "string",
-          "pattern": "^[0-9]+$"
+          "type": "integer"
         },
         "FrequencyType": {
           "description": "Frequency associated with the backup policy item. For on-demand policies, the frequency type is 'ondemand'. This is a read-only value.",
@@ -28,8 +26,7 @@
         },
         "RetentionValue": {
           "description": "Duration in days, weeks, months, or years that MongoDB Cloud retains the snapshot. Required when OnDemandPolicyItem is provided.",
-          "type": "string",
-          "pattern": "^[0-9]+$"
+          "type": "integer"
         }
       },
       "additionalProperties": false
@@ -49,8 +46,7 @@
         },
         "FrequencyInterval": {
           "description": "Desired frequency of the new backup policy item specified by frequencyType. Required when the policy item is provided.",
-          "type": "string",
-          "pattern": "^[0-9]+$"
+          "type": "integer"
         },
         "RetentionUnit": {
           "description": "Unit of time in which MongoDB Cloud measures snapshot retention. Required when the policy item is provided.",
@@ -59,14 +55,18 @@
         },
         "RetentionValue": {
           "description": "Duration in days, weeks, months, or years that MongoDB Cloud retains the snapshot. Required when the policy item is provided. For less frequent policy items, MongoDB Cloud requires that you specify a value greater than or equal to the value specified for more frequent policy items.",
-          "type": "string",
-          "pattern": "^[0-9]+$"
+          "type": "integer"
         }
       },
       "additionalProperties": false
     }
   },
   "properties": {
+    "Profile": {
+      "description": "Profile used to provide credentials information, (a secret with the cfn/atlas/profile/{Profile}, is required), if not provided default is used",
+      "type": "string",
+      "default": "default"
+    },
     "ProjectId": {
       "description": "The unique identifier of the project for the Backup Compliance Policy.",
       "type": "string"
@@ -85,18 +85,15 @@
     },
     "CopyProtectionEnabled": {
       "description": "Flag that indicates whether to enable additional copy protection for the cluster. If enabled, cloud backup snapshots cannot be deleted until the retention period expires. Defaults to false if not specified.",
-      "type": "string",
-      "pattern": "^(true|false)$"
+      "type": "boolean"
     },
     "EncryptionAtRestEnabled": {
       "description": "Flag that indicates whether Encryption at Rest using Customer Key Management is required for all clusters with a Backup Compliance Policy. Defaults to false if not specified.",
-      "type": "string",
-      "pattern": "^(true|false)$"
+      "type": "boolean"
     },
     "RestoreWindowDays": {
       "description": "Number of days back in time you can restore to with Continuous Cloud Backup accuracy. Must be a positive, non-zero integer. This field is optional and computed from the API.",
-      "type": "string",
-      "pattern": "^[0-9]+$"
+      "type": "integer"
     },
     "OnDemandPolicyItem": {
       "description": "On-demand backup policy item configuration.",
@@ -105,8 +102,7 @@
     },
     "PitEnabled": {
       "description": "Flag that indicates whether the cluster uses Continuous Cloud Backup. If enabled, cloud backup snapshots are taken every 6 hours. Defaults to false if not specified.",
-      "type": "string",
-      "pattern": "^(true|false)$"
+      "type": "boolean"
     },
     "State": {
       "description": "Current state of the Backup Compliance Policy settings. Possible values are: ACTIVE, INACTIVE.",
@@ -184,22 +180,24 @@
   "primaryIdentifier": ["/properties/ProjectId"],
   "handlers": {
     "create": {
-      "permissions": ["mongodbatlas:CloudBackups:UpdateCompliancePolicy"]
+      "permissions": ["secretsmanager:GetSecretValue"]
     },
     "read": {
-      "permissions": ["mongodbatlas:CloudBackups:GetCompliancePolicy"]
+      "permissions": ["secretsmanager:GetSecretValue"]
     },
     "update": {
-      "permissions": ["mongodbatlas:CloudBackups:UpdateCompliancePolicy"]
+      "permissions": ["secretsmanager:GetSecretValue"]
     },
     "delete": {
-      "permissions": ["mongodbatlas:CloudBackups:DisableCompliancePolicy"]
+      "permissions": ["secretsmanager:GetSecretValue"]
     },
     "list": {
-      "permissions": ["mongodbatlas:CloudBackups:GetCompliancePolicy"]
+      "permissions": ["secretsmanager:GetSecretValue"]
     }
   },
+  "documentationUrl": "https://github.com/mongodb/mongodbatlas-cloudformation-resources/blob/master/cfn-resources/backup-compliance-policy/README.md",
   "tagging": {
     "taggable": false
-  }
+  },
+  "sourceUrl": "https://github.com/mongodb/mongodbatlas-cloudformation-resources/tree/master/cfn-resources/backup-compliance-policy"
 }

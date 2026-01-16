@@ -10,18 +10,18 @@ To declare this entity in your AWS CloudFormation template, use the following sy
 
 <pre>
 {
-    "<a href="#frequencyinterval" title="FrequencyInterval">FrequencyInterval</a>" : <i>String</i>,
+    "<a href="#frequencyinterval" title="FrequencyInterval">FrequencyInterval</a>" : <i>Integer</i>,
     "<a href="#retentionunit" title="RetentionUnit">RetentionUnit</a>" : <i>String</i>,
-    "<a href="#retentionvalue" title="RetentionValue">RetentionValue</a>" : <i>String</i>
+    "<a href="#retentionvalue" title="RetentionValue">RetentionValue</a>" : <i>Integer</i>
 }
 </pre>
 
 ### YAML
 
 <pre>
-<a href="#frequencyinterval" title="FrequencyInterval">FrequencyInterval</a>: <i>String</i>
+<a href="#frequencyinterval" title="FrequencyInterval">FrequencyInterval</a>: <i>Integer</i>
 <a href="#retentionunit" title="RetentionUnit">RetentionUnit</a>: <i>String</i>
-<a href="#retentionvalue" title="RetentionValue">RetentionValue</a>: <i>String</i>
+<a href="#retentionvalue" title="RetentionValue">RetentionValue</a>: <i>Integer</i>
 </pre>
 
 ## Properties
@@ -32,9 +32,7 @@ Number that indicates the frequency interval for a set of snapshots. Required wh
 
 _Required_: No
 
-_Type_: String
-
-_Pattern_: <code>^[0-9]+$</code>
+_Type_: Integer
 
 _Update requires_: [No interruption](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/using-cfn-updating-stacks-update-behaviors.html#update-no-interrupt)
 
@@ -56,9 +54,7 @@ Duration in days, weeks, months, or years that MongoDB Cloud retains the snapsho
 
 _Required_: No
 
-_Type_: String
-
-_Pattern_: <code>^[0-9]+$</code>
+_Type_: Integer
 
 _Update requires_: [No interruption](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/using-cfn-updating-stacks-update-behaviors.html#update-no-interrupt)
 
