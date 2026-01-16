@@ -47,7 +47,8 @@ for inputFile in inputs_*; do
 	outputFile=${inputFile//$WORDTOREMOVE/}
 	jq --arg projectId "$projectId" \
 		--arg authorizedEmail "$authorizedEmail" \
-		'.ProjectId?|=$projectId |.AuthorizedEmail?|=$authorizedEmail' \
+		--arg profile "$profile" \
+		'.Profile?|=$profile | .ProjectId?|=$projectId |.AuthorizedEmail?|=$authorizedEmail' \
 		"$inputFile" >"../inputs/$outputFile"
 done
 cd ..
