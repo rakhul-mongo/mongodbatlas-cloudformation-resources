@@ -1,7 +1,7 @@
 package resource
 
 import (
-	admin20250312010 "go.mongodb.org/atlas-sdk/v20250312010/admin"
+	"go.mongodb.org/atlas-sdk/v20250312012/admin"
 
 	"github.com/mongodb/mongodbatlas-cloudformation-resources/util"
 )
@@ -11,9 +11,7 @@ const (
 	ProtocolOIDC = "OIDC"
 )
 
-// GetFederatedSettingsIdentityProviderModel converts an Atlas API response to a CFN Model.
-// It preserves identifier fields from currentModel when provided.
-func GetFederatedSettingsIdentityProviderModel(api *admin20250312010.FederationIdentityProvider, currentModel *Model) *Model {
+func GetFederatedSettingsIdentityProviderModel(api *admin.FederationIdentityProvider, currentModel *Model) *Model {
 	var model *Model
 	if currentModel != nil {
 		model = currentModel
@@ -25,13 +23,11 @@ func GetFederatedSettingsIdentityProviderModel(api *admin20250312010.FederationI
 		return model
 	}
 
-	// Computed identifiers (Terraform exposes both okta_idp_id and idp_id)
 	oktaID := api.GetOktaIdpId()
 	model.OktaIdpId = &oktaID
 	idpID := api.GetId()
 	model.IdpId = &idpID
 
-	// Common fields (Terraform always sets these)
 	displayName := api.GetDisplayName()
 	model.Name = &displayName
 	issuerURI := api.GetIssuerUri()
@@ -39,7 +35,6 @@ func GetFederatedSettingsIdentityProviderModel(api *admin20250312010.FederationI
 	protocol := api.GetProtocol()
 	model.Protocol = &protocol
 
-	// These are set in Terraform outside protocol-specific branches
 	description := api.GetDescription()
 	model.Description = &description
 	authorizationType := api.GetAuthorizationType()
@@ -47,8 +42,8 @@ func GetFederatedSettingsIdentityProviderModel(api *admin20250312010.FederationI
 	idpType := api.GetIdpType()
 	model.IdpType = &idpType
 
-	// Protocol-specific fields: Terraform sets only the fields relevant to the protocol.
-	if protocol == ProtocolSAML {
+	switch protocol {
+	case ProtocolSAML:
 		requestBinding := api.GetRequestBinding()
 		model.RequestBinding = &requestBinding
 		responseSignatureAlgorithm := api.GetResponseSignatureAlgorithm()
@@ -59,29 +54,41 @@ func GetFederatedSettingsIdentityProviderModel(api *admin20250312010.FederationI
 		status := api.GetStatus()
 		model.Status = &status
 
-		// Also set associated_domains for both protocols (Terraform does this outside branch)
-		model.AssociatedDomains = api.GetAssociatedDomains()
-	} else if protocol == ProtocolOIDC {
+		associatedDomains := api.GetAssociatedDomains()
+		if len(associatedDomains) == 0 && currentModel != nil && len(currentModel.AssociatedDomains) > 0 {
+			associatedDomains = currentModel.AssociatedDomains
+		}
+		model.AssociatedDomains = associatedDomains
+	case ProtocolOIDC:
 		audience := api.GetAudience()
 		model.Audience = &audience
 		clientID := api.GetClientId()
 		model.ClientId = &clientID
 		groupsClaim := api.GetGroupsClaim()
 		model.GroupsClaim = &groupsClaim
-		model.RequestedScopes = api.GetRequestedScopes()
+
+		requestedScopes := api.GetRequestedScopes()
+		if len(requestedScopes) == 0 && currentModel != nil && len(currentModel.RequestedScopes) > 0 {
+			requestedScopes = currentModel.RequestedScopes
+		}
+		model.RequestedScopes = requestedScopes
+
 		userClaim := api.GetUserClaim()
 		model.UserClaim = &userClaim
 
-		// Also set associated_domains for both protocols (Terraform does this outside branch)
-		model.AssociatedDomains = api.GetAssociatedDomains()
+		associatedDomains := api.GetAssociatedDomains()
+		if len(associatedDomains) == 0 && currentModel != nil && len(currentModel.AssociatedDomains) > 0 {
+			associatedDomains = currentModel.AssociatedDomains
+		}
+		model.AssociatedDomains = associatedDomains
+	default:
+		return model
 	}
 
 	return model
 }
 
-func expandOIDCCreateRequest(model *Model) *admin20250312010.FederationOidcIdentityProviderUpdate {
-	// Terraform always passes pointers (even for empty strings) for most OIDC fields.
-	// We mirror that behavior for parity.
+func ExpandOIDCCreateRequest(model *Model) *admin.FederationOidcIdentityProviderUpdate {
 	var associatedDomains []string
 	if model.AssociatedDomains != nil {
 		associatedDomains = model.AssociatedDomains
@@ -95,7 +102,7 @@ func expandOIDCCreateRequest(model *Model) *admin20250312010.FederationOidcIdent
 		requestedScopes = []string{}
 	}
 
-	return &admin20250312010.FederationOidcIdentityProviderUpdate{
+	return &admin.FederationOidcIdentityProviderUpdate{
 		Audience:          util.Pointer(util.SafeString(model.Audience)),
 		AssociatedDomains: &associatedDomains,
 		AuthorizationType: util.Pointer(util.SafeString(model.AuthorizationType)),
@@ -111,15 +118,7 @@ func expandOIDCCreateRequest(model *Model) *admin20250312010.FederationOidcIdent
 	}
 }
 
-func normalizeIdForBackCompat(model *Model) {
-	// Terraform historically used okta_idp_id for the ID encoding; CFN primary identifier uses IdpId.
-	// To support resources created/imported with OktaIdpId, treat it as IdpId when IdpId isn't set.
-	if model != nil && model.IdpId == nil && model.OktaIdpId != nil {
-		model.IdpId = model.OktaIdpId
-	}
-}
-
-func slicesEqual(a, b []string) bool {
+func SlicesEqual(a, b []string) bool {
 	if len(a) != len(b) {
 		return false
 	}

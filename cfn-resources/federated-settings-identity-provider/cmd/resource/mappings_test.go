@@ -12,31 +12,21 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package resource
+package resource_test
 
 import (
 	"testing"
 
+	"github.com/mongodb/mongodbatlas-cloudformation-resources/federated-settings-identity-provider/cmd/resource"
 	"github.com/stretchr/testify/assert"
-	admin20250312010 "go.mongodb.org/atlas-sdk/v20250312010/admin"
+	"go.mongodb.org/atlas-sdk/v20250312012/admin"
 )
-
-func TestNormalizeIdForBackCompat(t *testing.T) {
-	okta := "okta-legacy-id"
-	m := &Model{
-		OktaIdpId: &okta,
-	}
-
-	normalizeIdForBackCompat(m)
-
-	assert.Equal(t, okta, *m.IdpId)
-}
 
 func TestGetFederatedSettingsIdentityProviderModel_SAML(t *testing.T) {
 	protocol := "SAML"
 	displayName := "saml-name"
 	issuerURI := "https://issuer.example.com"
-	api := &admin20250312010.FederationIdentityProvider{
+	api := &admin.FederationIdentityProvider{
 		Id:                         "idp-1",
 		OktaIdpId:                  "okta-1",
 		Protocol:                   &protocol,
@@ -50,7 +40,7 @@ func TestGetFederatedSettingsIdentityProviderModel_SAML(t *testing.T) {
 		AssociatedDomains:          func() *[]string { s := []string{"example.com"}; return &s }(),
 	}
 
-	model := GetFederatedSettingsIdentityProviderModel(api, &Model{})
+	model := resource.GetFederatedSettingsIdentityProviderModel(api, &resource.Model{})
 
 	assert.Equal(t, "idp-1", *model.IdpId)
 	assert.Equal(t, "okta-1", *model.OktaIdpId)
@@ -72,7 +62,7 @@ func TestGetFederatedSettingsIdentityProviderModel_OIDC(t *testing.T) {
 	protocol := "OIDC"
 	displayName := "oidc-name"
 	issuerURI := "https://issuer.oidc.example.com"
-	api := &admin20250312010.FederationIdentityProvider{
+	api := &admin.FederationIdentityProvider{
 		Id:                "idp-2",
 		OktaIdpId:         "okta-2",
 		Protocol:          &protocol,
@@ -86,7 +76,7 @@ func TestGetFederatedSettingsIdentityProviderModel_OIDC(t *testing.T) {
 		AssociatedDomains: func() *[]string { s := []string{"oidc.example.com"}; return &s }(),
 	}
 
-	model := GetFederatedSettingsIdentityProviderModel(api, &Model{})
+	model := resource.GetFederatedSettingsIdentityProviderModel(api, &resource.Model{})
 
 	assert.Equal(t, "idp-2", *model.IdpId)
 	assert.Equal(t, "okta-2", *model.OktaIdpId)
@@ -105,26 +95,26 @@ func TestGetFederatedSettingsIdentityProviderModel_OIDC(t *testing.T) {
 }
 
 func TestExpandOIDCCreateRequest_DefaultSlices(t *testing.T) {
-	protocol := ProtocolOIDC
+	protocol := resource.ProtocolOIDC
 	name := "n"
 	issuer := "i"
-	m := &Model{
+	m := &resource.Model{
 		Protocol:  &protocol,
 		Name:      &name,
 		IssuerUri: &issuer,
 		// AssociatedDomains and RequestedScopes intentionally nil to exercise defaults
 	}
 
-	req := expandOIDCCreateRequest(m)
+	req := resource.ExpandOIDCCreateRequest(m)
 	assert.NotNil(t, req)
 	assert.NotNil(t, req.AssociatedDomains)
 	assert.NotNil(t, req.RequestedScopes)
-	assert.Equal(t, 0, len(*req.AssociatedDomains))
-	assert.Equal(t, 0, len(*req.RequestedScopes))
+	assert.Empty(t, *req.AssociatedDomains)
+	assert.Empty(t, *req.RequestedScopes)
 }
 
 func TestSlicesEqual(t *testing.T) {
-	assert.True(t, slicesEqual([]string{"a", "b"}, []string{"a", "b"}))
-	assert.False(t, slicesEqual([]string{"a"}, []string{"a", "b"}))
-	assert.False(t, slicesEqual([]string{"a", "x"}, []string{"a", "b"}))
+	assert.True(t, resource.SlicesEqual([]string{"a", "b"}, []string{"a", "b"}))
+	assert.False(t, resource.SlicesEqual([]string{"a"}, []string{"a", "b"}))
+	assert.False(t, resource.SlicesEqual([]string{"a", "x"}, []string{"a", "b"}))
 }
